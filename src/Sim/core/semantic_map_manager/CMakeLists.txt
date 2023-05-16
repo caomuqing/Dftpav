@@ -13,6 +13,7 @@ find_package(catkin REQUIRED COMPONENTS
     sensor_msgs
     geometry_msgs
     tf
+    people_msgs
 )
 
 find_package(Eigen3 REQUIRED)
@@ -62,7 +63,21 @@ target_link_libraries(hkust_smm_ros
     hkust_pl_smm
 )
 
+add_executable(odom_utility
+    src/odom_utility.cpp
+)
+target_link_libraries(odom_utility
+   ${catkin_LIBRARIES}
+    ${common_LIBRARIES}
+)
 
+add_executable(odom_tf_node
+    src/agv_odom_tf_node.cpp
+)
+target_link_libraries(odom_tf_node
+   ${catkin_LIBRARIES}
+    ${common_LIBRARIES}
+)
 #install the hearder files so that other packages can include.
 #install(DIRECTORY include/${PROJECT_NAME}/
 #   DESTINATION ${CATKIN_PACKAGE_INCLUDE_DESTINATION}

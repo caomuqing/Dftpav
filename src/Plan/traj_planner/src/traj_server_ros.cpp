@@ -76,6 +76,7 @@ namespace plan_utils
 
     // to publish command to sim
     ctrl_signal_pub_ = nh_.advertise<vehicle_msgs::ControlSignal>("ctrl", 20);
+    cmd_vel_pub_ = nh_.advertise<geometry_msgs::Twist>("/cmd_vel", 20);
     executing_traj_vis_pub_ = nh_.advertise<visualization_msgs::MarkerArray>(traj_topic, 1);
     debug_pub =  nh_.advertise<std_msgs::Bool>("/DEBUG", 1);
     end_pt_.setZero();
@@ -232,6 +233,15 @@ namespace plan_utils
               common::VehicleControlSignal(state), ros::Time(t),
               std::string("map"), &ctrl_msg);
        ctrl_signal_pub_.publish(ctrl_msg);
+
+       geometry_msgs::Twist cmd_msg;
+       cmd_msg.linear.x = state.velocity;
+       cmd_msg.linear.y = 0.0;
+       cmd_msg.linear.z = 0.0;
+       cmd_msg.linear.x = 0.0;
+       cmd_msg.linear.y = 0.0;
+        cmd_msg.angular.z = state.velocity*tan(state.steer)/0.7;
+       cmd_vel_pub_.publish(cmd_msg);       
        m.unlock();
        return;
      }
@@ -285,6 +295,14 @@ namespace plan_utils
 
         // std::cout<<"ctrl_msg: "<<ctrl_msg.state.vec_position.x<<" "<<ctrl_msg.state.vec_position.y<<std::endl;
         ctrl_signal_pub_.publish(ctrl_msg);
+        geometry_msgs::Twist cmd_msg;
+        cmd_msg.linear.x = state.velocity;
+        cmd_msg.linear.y = 0.0;
+        cmd_msg.linear.z = 0.0;
+        cmd_msg.angular.x = 0.0;
+        cmd_msg.angular.y = 0.0;
+        cmd_msg.angular.z = state.velocity*tan(state.steer)/0.7;
+        cmd_vel_pub_.publish(cmd_msg);         
       }
     }
     
@@ -507,7 +525,7 @@ namespace plan_utils
     end_pt_ <<  msg.pose.position.x, msg.pose.position.y,
                 tf::getYaw(msg.pose.orientation), 1.0e-2;
     std::cout<<"end_pt: "<<end_pt_.transpose()<<std::endl;
-  end_pt_ << -20.2606 ,-7.24047 ,-3.13672 ,    0.01;
+  // end_pt_ << -20.2606 ,-7.24047 ,-3.13672 ,    0.01;
    
 
     have_parking_target_ = true;

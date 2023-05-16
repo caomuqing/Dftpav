@@ -160,7 +160,7 @@ namespace plan_manage
 
   ErrorType TrajPlanner::RunOnceParking(){
     if(!have_parking_target) return kWrongStatus;
-    have_parking_target = false;      
+    // have_parking_target = false;      
     Eigen::Vector4d parking_end = end_pt;
     is_init = false;
     stamp_ = map_itf_->GetTimeStamp();

@@ -19,11 +19,11 @@ map_cfg {
   s_back_len: 20.0
 
   dyn_bounds {
-    max_lon_vel: 50.0
+    max_lon_vel: 1.5
     min_lon_vel: 0.0
-    max_lon_acc: 3.0
-    max_lon_dec: -6.0
-    max_lat_vel: 2.5
+    max_lon_acc: 2.0
+    max_lon_dec: -2.0
+    max_lat_vel: 1.5
     max_lat_acc: 1.25
   }
 
@@ -50,7 +50,7 @@ map_cfg {
   max_search_time: 1.0
   phi_grid_resolution: 0.3
   traj_forward_penalty: 1.0
-  traj_back_penalty: 2.5
+  traj_back_penalty: 100.0
   traj_gear_switch_penalty: 15.0
   traj_steer_penalty: 0.5
   traj_steer_change_penalty: 0.0
@@ -74,21 +74,21 @@ opt_cfg {
   half_margin: 0.15
 
   traj_piece_duration: 1.5
-  max_frontend_forward_vel: 5.0
-  max_frontend_forward_acc: 8.0
-  max_frontend_backward_vel: 2.0
-  max_frontend_backward_acc: 4.0
+  max_frontend_forward_vel: 1.5
+  max_frontend_forward_acc: 2.0
+  max_frontend_backward_vel: 0.5
+  max_frontend_backward_acc: 1.5
   max_frontend_cur: 1.0
   
-  max_forward_vel: 5.0
-  max_forward_acc: 8.0
+  max_forward_vel: 1.5
+  max_forward_acc: 2.0
   max_forward_cur: 1.0
 
-  max_backward_vel: 2.0
-  max_backward_acc: 4.0
+  max_backward_vel: 0.5
+  max_backward_acc: 1.5
   max_backward_cur: 1.0
 
-  max_latacc: 5.0
+  max_latacc: 1.5
   max_phidot: 10000.0
 
 

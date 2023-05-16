@@ -11,7 +11,7 @@
     <param name="ego_id" type="int" value="0" />
     <param name="agent_config_path" type="string" value="$(find playgrounds)/$(arg playground)/agent_config.json" />
     <param name="traj_config_path" type="string" value="$(find traj_planner)/config/minco_config.pb.txt" />
-    <param name="desired_vel" value="10.0"/>
+    <param name="desired_vel" value="1.0"/>
     <param name="use_sim_state" value="true"/>
     <param name="enable_urban" value="true"/>
     <param name="isparking" value="true"/>
@@ -23,8 +23,16 @@
 
 
 
+<!--   <node pkg="semantic_map_manager" type="odom_utility" name="odom_utility_0" output="screen" >
+    <param name="ego_id" type="int" value="0" />
+    <param name="vehicle_info_path" type="string" value="$(find playgrounds)/$(arg playground)/vehicle_set.json" />
+  </node> -->
 
-  
+<!--   <node pkg="semantic_map_manager" type="odom_tf_node" name="odom_tf_node_0" output="screen" >
+    <rosparam file="$(find ai_agent_planner)/cfg/dynamicObs.yaml" command="load"/>
+    <param name="/agv_odomtf_node/odom_frame_name" type="string" value="map" />
+    <param name="/agv_odomtf_node/baselink_frame_name" type="string" value="base_link" />
+  </node> -->
 
 
 </launch>

@@ -63,17 +63,17 @@ class VehicleParam {
   void print() const;
 
  private:
-  double width_ = 1.90;
-  double length_ = 4.88;
-  double wheel_base_ = 2.85;
-  double front_suspension_ = 0.93;
-  double rear_suspension_ = 1.10;
+  double width_ = 0.5;
+  double length_ = 0.5;
+  double wheel_base_ = 0.5;
+  double front_suspension_ = 0.10;
+  double rear_suspension_ = 0.10;
   double max_steering_angle_ = 45.0;
 
   double max_longitudinal_acc_ = 2.0;
   double max_lateral_acc_ = 2.0;
 
-  double d_cr_ = 1.015;  // length between geometry center and rear axle
+  double d_cr_ = 0.25;  // length between geometry center and rear axle
 };
 
 class Vehicle {

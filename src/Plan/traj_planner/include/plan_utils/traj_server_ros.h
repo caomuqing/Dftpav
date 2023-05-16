@@ -54,7 +54,8 @@
 #include "visualization_msgs/Marker.h"
 #include "visualization_msgs/MarkerArray.h"
 #include <functional>
-#include<mutex>
+#include <mutex>
+#include "geometry_msgs/Twist.h"
 #define Budget 0.5
 namespace plan_utils
 {
@@ -108,6 +109,7 @@ namespace plan_utils
     /* ros related */
     ros::NodeHandle nh_;
     ros::Publisher ctrl_signal_pub_, executing_traj_vis_pub_,debug_pub;
+    ros::Publisher cmd_vel_pub_;
     decimal_t work_rate_ = 20.0;
     int ego_id_;
     bool enable_urban_ = false;
