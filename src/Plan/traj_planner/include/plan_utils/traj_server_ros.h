@@ -92,6 +92,17 @@ namespace plan_utils
 
     ErrorType Replan();
 
+    inline double wrapMax(double x, double max) {
+        return fmod(max + fmod(x, max),max);
+    }
+    inline double wrapMinMax(double x, double min, double max) {
+        return min + wrapMax(x - min, max - min);
+    }
+    inline double wrapPi(double x) {
+        return wrapMinMax(x, -M_PI, M_PI);
+    }
+
+    double wrapToPi(double angle) ;
     Config config_;
 
     TicToc time_profile_tool_;

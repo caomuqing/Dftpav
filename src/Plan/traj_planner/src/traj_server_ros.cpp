@@ -234,14 +234,27 @@ namespace plan_utils
               std::string("map"), &ctrl_msg);
        ctrl_signal_pub_.publish(ctrl_msg);
 
-       geometry_msgs::Twist cmd_msg;
-       cmd_msg.linear.x = state.velocity;
-       cmd_msg.linear.y = 0.0;
-       cmd_msg.linear.z = 0.0;
-       cmd_msg.linear.x = 0.0;
-       cmd_msg.linear.y = 0.0;
-        cmd_msg.angular.z = state.velocity*tan(state.steer)/0.7;
-       cmd_vel_pub_.publish(cmd_msg);       
+        common::State desired_state;
+        if(map_adapter_.GetEgoState(&desired_state)==kSuccess)
+        {
+          double max_yaw_rate_ = 120.0f/180.0f*3.14159;
+          double yaw_rate_tmp=wrapToPi(state.angle - desired_state.angle) * 2.0;
+          if (yaw_rate_tmp>max_yaw_rate_) yaw_rate_tmp = max_yaw_rate_;
+          else if (yaw_rate_tmp<-max_yaw_rate_) yaw_rate_tmp = -max_yaw_rate_;      
+          // std::cout<<"state.angle: "<<state.angle<<" desired_state.angle "<<desired_state.angle<<std::endl;    
+          // std::cout<<"yaw_rate_tmp "<<yaw_rate_tmp<<std::endl;    
+
+          geometry_msgs::Twist cmd_msg;
+          cmd_msg.linear.x = state.velocity;
+          cmd_msg.linear.y = 0.0;
+          cmd_msg.linear.z = 0.0;
+          cmd_msg.angular.x = 0.0;
+          cmd_msg.angular.y = 0.0;
+          cmd_msg.angular.z = yaw_rate_tmp;
+          // cmd_msg.angular.z = state.velocity*tan(state.steer)/0.7;
+
+          cmd_vel_pub_.publish(cmd_msg);              
+        } 
        m.unlock();
        return;
      }
@@ -294,15 +307,30 @@ namespace plan_utils
 
 
         // std::cout<<"ctrl_msg: "<<ctrl_msg.state.vec_position.x<<" "<<ctrl_msg.state.vec_position.y<<std::endl;
+      common::State desired_state;
+      if(map_adapter_.GetEgoState(&desired_state)==kSuccess)
+      {
         ctrl_signal_pub_.publish(ctrl_msg);
+
+        double max_yaw_rate_ = 80.0f/180.0f*3.14159;
+        double yaw_rate_tmp=wrapToPi(state.angle - desired_state.angle) * 2.0;
+        if (yaw_rate_tmp>max_yaw_rate_) yaw_rate_tmp = max_yaw_rate_;
+        else if (yaw_rate_tmp<-max_yaw_rate_) yaw_rate_tmp = -max_yaw_rate_;                  
+        std::cout<<"state.angle: "<<state.angle<<"desired_state.angle "<<desired_state.angle<<std::endl;    
+        std::cout<<"yaw_rate_tmp "<<yaw_rate_tmp<<std::endl;    
+
         geometry_msgs::Twist cmd_msg;
         cmd_msg.linear.x = state.velocity;
         cmd_msg.linear.y = 0.0;
         cmd_msg.linear.z = 0.0;
         cmd_msg.angular.x = 0.0;
         cmd_msg.angular.y = 0.0;
+        cmd_msg.angular.z = yaw_rate_tmp;
         cmd_msg.angular.z = state.velocity*tan(state.steer)/0.7;
-        cmd_vel_pub_.publish(cmd_msg);         
+
+        cmd_vel_pub_.publish(cmd_msg);              
+      }
+   
       }
     }
     
@@ -334,6 +362,25 @@ namespace plan_utils
     }*/
     m.unlock();
   }
+
+  // double TrajPlannerServer::wrapToPi(double angle) {
+  //   double pi = 3.1415927;
+  //   while (angle > pi) {
+  //       angle -= 2 * pi;
+  //   }
+  //   while (angle < -pi) {
+  //       angle += 2 * pi;
+  //   }
+  //   return angle;
+  //   }    
+
+    double TrajPlannerServer::wrapToPi(double angleinradian)
+    {
+        angleinradian = fmod(angleinradian + M_PI, 2*M_PI);
+        if (angleinradian < 0)
+            angleinradian += 2*M_PI;
+        return angleinradian - M_PI;
+    }
 
   // minco display
   void TrajPlannerServer::Display(){  
@@ -414,7 +461,17 @@ namespace plan_utils
 
       }
       // executing_traj_/
-      
+      common::State desired_state;
+      if(map_adapter_.GetEgoState(&desired_state)==kSuccess)
+      {
+        Eigen::Vector2d pos = desired_state.vec_position;
+        double yaw = desired_state.angle;
+        common::State state;
+        double t = ros::Time::now().toSec();
+        executing_traj_->at(exe_traj_index_).traj.GetState(t-executing_traj_->at(exe_traj_index_).start_time, &state);
+        if ((pos - state.vec_position).norm()>0.3 || fabs(yaw - state.angle)>0.15)
+          return true;
+      }
       return false;
       // map_adapter_.CheckIfCollisionUsingPosAndYaw   
   }
@@ -430,7 +487,7 @@ namespace plan_utils
       return kWrongStatus;
     }
     desired_state.time_stamp = ros::Time::now().toSec()+Budget;
-    if(executing_traj_ ==nullptr){
+    if(executing_traj_ ==nullptr ||true){
       p_planner_->set_initial_state(desired_state);
       if (trajplan()!= kSuccess) {
         Display();

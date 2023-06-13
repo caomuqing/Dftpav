@@ -445,12 +445,15 @@ void TrajVisualizer::displayPolyTraj(std::unique_ptr<SingulTrajData> &display_tr
   for (unsigned int i = 0; i < display_traj->size(); ++i){
 
     double total_duration = display_traj->at(i).duration;
-    for (double t = 0; t <= total_duration; t += 0.01){
+    for (double t = 0; t <= total_duration; t += 0.5){
 
       Eigen::Vector2d pt = display_traj->at(i).traj.getPos(t);
       pose.pose.position.x = pt(0);
       pose.pose.position.y = pt(1);
       pose.pose.position.z = 0.4;
+
+      double _yaw = display_traj->at(i).traj.getAngle(t);
+      pose.pose.orientation = tf::createQuaternionMsgFromYaw(_yaw);
       path_msg.poses.push_back(pose);
     }
 

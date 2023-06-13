@@ -18,7 +18,8 @@
     <remap from="~arena_info_static" to="$(arg arena_info_static_topic)"/>
     <remap from="~arena_info_dynamic" to="$(arg arena_info_dynamic_topic)"/>
     <remap from="~ctrl" to="$(arg ctrl_topic)"/>
-    
+    <!-- <remap from="/cmd_vel" to="/somethingelse"/> -->
+
   </node>
 
 

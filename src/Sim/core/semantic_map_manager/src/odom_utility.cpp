@@ -309,8 +309,17 @@ void odom_cb(const nav_msgs::Odometry::ConstPtr& msg)
     // state1.time_stamp = timestamp;
     state1.vec_position(0) = msg->pose.pose.position.x;
     state1.vec_position(1) = msg->pose.pose.position.y;
-    state1.angle = yaw;
 
+    Eigen::Quaternionf orientation_W_B(msg->pose.pose.orientation.w, msg->pose.pose.orientation.x, 
+                                       msg->pose.pose.orientation.y, msg->pose.pose.orientation.z);
+    Eigen::Vector3f velocity_world(msg->twist.twist.linear.x, msg->twist.twist.linear.y, 0.0f);
+    Eigen::Vector3f velocity_body = orientation_W_B.inverse() *velocity_world;    
+
+    std::cout<<"velocity body x: "<<velocity_body(0)<<" velocity body y: "<<velocity_body(1)<<std::endl;
+    double angvel = msg->twist.twist.angular.z;
+    state1.steer = 0.0;//atan(0.3/(velocity_body(0)/angvel));
+    state1.angle = yaw;
+    state1.velocity = velocity_body(0);
     vehicle_set_.vehicles[0].set_state(state1);
 
   // Vecf<2> vec_position{Vecf<2>::Zero()};
