@@ -316,8 +316,8 @@ namespace plan_utils
         double yaw_rate_tmp=wrapToPi(state.angle - desired_state.angle) * 2.0;
         if (yaw_rate_tmp>max_yaw_rate_) yaw_rate_tmp = max_yaw_rate_;
         else if (yaw_rate_tmp<-max_yaw_rate_) yaw_rate_tmp = -max_yaw_rate_;                  
-        std::cout<<"state.angle: "<<state.angle<<"desired_state.angle "<<desired_state.angle<<std::endl;    
-        std::cout<<"yaw_rate_tmp "<<yaw_rate_tmp<<std::endl;    
+        // std::cout<<"state.angle: "<<state.angle<<"desired_state.angle "<<desired_state.angle<<std::endl;    
+        // std::cout<<"yaw_rate_tmp "<<yaw_rate_tmp<<std::endl;    
 
         geometry_msgs::Twist cmd_msg;
         cmd_msg.linear.x = state.velocity;

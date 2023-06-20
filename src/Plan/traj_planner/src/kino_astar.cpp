@@ -87,7 +87,7 @@ namespace path_searching
       // to decide the near end
       bool reach_horizon = (cur_node->state.head(2) - start_state_.head(2)).norm() >= horizon_;
       double t1 = ros::Time::now().toSec();
-      if((cur_node->state.head(2) - end_state_.head(2)).norm()<15.0&& initsearch){
+      if((cur_node->state.head(2) - end_state_.head(2)).norm()<7.0&& initsearch){
     
         is_shot_sucess(cur_node->state,end_state_.head(3));
       }
@@ -745,7 +745,7 @@ namespace path_searching
   double KinoAstar::evaluateDuration(double length, double max_vel, double max_acc, double startV, double endV){
    double critical_len; //the critical length of two-order optimal control, acc is the input
     if(startV>max_vel||endV>max_vel){
-      ROS_ERROR("kinoAstar:evaluateDuration:start or end vel is larger that the limit!");
+      // ROS_ERROR("kinoAstar:evaluateDuration:start or end vel is larger that the limit!");
     }
     double startv2 = pow(startV,2);
     double endv2 = pow(endV,2);
@@ -764,7 +764,7 @@ namespace path_searching
   double KinoAstar::evaluateLength(double curt,double locallength,double localtime,double max_vel, double max_acc, double startV, double endV){
     double critical_len; //the critical length of two-order optimal control, acc is the input
     if(startV>max_vel||endV>max_vel){
-      ROS_ERROR("kinoAstar:evaluateLength:start or end vel is larger that the limit!");
+      // ROS_ERROR("kinoAstar:evaluateLength:start or end vel is larger that the limit!");
     }
     double startv2 = pow(startV,2);
     double endv2 = pow(endV,2);

@@ -627,18 +627,20 @@ namespace plan_manage
         }
 
         //debug
-        double max_acc = -1, max_lat  = -1;
+        double max_acc = -1, max_lat  = -1, max_vell = -1;
         for(unsigned int i = 0; i < kino_trajs_.size(); i++){
           plan_utils::Trajectory  traj = traj_container_.singul_traj[i].traj;
           for(double rest = 0.0; rest <= traj.getTotalDuration(); rest += 0.01){
+            // double velo = std::fabs(traj.getVel(rest));
             double lonacc = std::fabs(traj.getAcc(rest));
             double latacc = std::fabs(traj.getLatAcc(rest));
             max_acc = max(max_acc,lonacc);
             max_lat = max(max_lat,latacc);
+            // max_vell = max(max_vell,velo);
           }
           std::cout <<"trajid: "<<i<<" duration: "<< traj.getTotalDuration()<<std::endl;
         }
-        ROS_INFO_STREAM("max lon acc: " << max_acc <<" max lat acc: "<<max_lat);
+        ROS_INFO_STREAM("max VELOCITY: " << max_vell << "max lon acc: " << max_acc <<" max lat acc: "<<max_lat);
     }
     else{
         ROS_ERROR("[PolyTrajManager] Planning fails! ");
@@ -1232,7 +1234,7 @@ namespace plan_manage
     map_itf_->GetObstacleMap(&grid_map);    
     double resolution = grid_map.dims_resolution(0);
     double step = resolution * 1.0;
-    double limitBound = 10.0;
+    double limitBound = 2.0;
     visualization_msgs::Marker  carMarkers;
     //generate a rectangle for this state px py yaw
     for(const auto state : statelist){
