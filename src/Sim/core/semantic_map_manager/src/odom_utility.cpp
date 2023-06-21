@@ -90,6 +90,8 @@ void lines_cb(const visualization_msgs::Marker::ConstPtr& msg)
   }
   else if ((time_now-line_msg_->header.stamp).toSec()<0.05) return;
 
+  line_msg_ = msg;
+
   int num_segs = line_msg_->points.size()/2;
   vehicle_msgs::ArenaInfoStatic static_msg;
   static_msg.header.stamp = time_now;
@@ -141,7 +143,6 @@ void lines_cb(const visualization_msgs::Marker::ConstPtr& msg)
   static_msg.obstacle_set.header.frame_id = target_frame_;
   arena_info_static_pub_.publish(static_msg);
 
-  line_msg_ = msg;
 }
 
 void people_cb(const people_msgs::People::ConstPtr& msg)
@@ -284,8 +285,8 @@ void odom_cb(const nav_msgs::Odometry::ConstPtr& msg)
 	// tf2::Quaternion quat_tf;
 	// tf2::fromMsg(msg->pose.pose.orientation, quat_tf);
 	// double roll,pitch,yaw;
-	double yaw = tf::getYaw(msg->pose.pose.orientation);
-  angularZ_ = msg->twist.twist.angular.z;
+	// double yaw = tf::getYaw(msg->pose.pose.orientation);
+  // angularZ_ = msg->twist.twist.angular.z;
 
 	std::string frame_id="map";
 	ros::Time timestamp = ros::Time::now();
@@ -305,22 +306,22 @@ void odom_cb(const nav_msgs::Odometry::ConstPtr& msg)
     // vehicle_msgs::VehicleParam param;
     // msg.vehicle_set.vehicles.push_back(vehicle_msg);
 
-    common::State state1 = vehicle_set_.vehicles[0].state();
-    // state1.time_stamp = timestamp;
-    state1.vec_position(0) = msg->pose.pose.position.x;
-    state1.vec_position(1) = msg->pose.pose.position.y;
+    // common::State state1 = vehicle_set_.vehicles[0].state();
+    // // state1.time_stamp = timestamp;
+    // state1.vec_position(0) = msg->pose.pose.position.x;
+    // state1.vec_position(1) = msg->pose.pose.position.y;
 
-    Eigen::Quaternionf orientation_W_B(msg->pose.pose.orientation.w, msg->pose.pose.orientation.x, 
-                                       msg->pose.pose.orientation.y, msg->pose.pose.orientation.z);
-    Eigen::Vector3f velocity_world(msg->twist.twist.linear.x, msg->twist.twist.linear.y, 0.0f);
-    Eigen::Vector3f velocity_body = orientation_W_B.inverse() *velocity_world;    
+    // Eigen::Quaternionf orientation_W_B(msg->pose.pose.orientation.w, msg->pose.pose.orientation.x, 
+    //                                    msg->pose.pose.orientation.y, msg->pose.pose.orientation.z);
+    // Eigen::Vector3f velocity_world(msg->twist.twist.linear.x, msg->twist.twist.linear.y, 0.0f);
+    // Eigen::Vector3f velocity_body = orientation_W_B.inverse() *velocity_world;    
 
-    std::cout<<"velocity body x: "<<velocity_body(0)<<" velocity body y: "<<velocity_body(1)<<std::endl;
-    double angvel = msg->twist.twist.angular.z;
-    state1.steer = 0.0;//atan(0.3/(velocity_body(0)/angvel));
-    state1.angle = yaw;
-    state1.velocity = velocity_body(0);
-    vehicle_set_.vehicles[0].set_state(state1);
+    // std::cout<<"velocity body x: "<<msg->twist.twist.linear.x<<" velocity body y: "<<msg->twist.twist.linear.y<<std::endl;
+    // double angvel = msg->twist.twist.angular.z;
+    // state1.steer = 0.0;//atan(0.3/(velocity_body(0)/angvel));
+    // state1.angle = yaw;
+    // state1.velocity = msg->twist.twist.linear.x;
+    // vehicle_set_.vehicles[0].set_state(state1);
 
   // Vecf<2> vec_position{Vecf<2>::Zero()};
   // decimal_t angle{0.0};  // heading angle
@@ -328,6 +329,34 @@ void odom_cb(const nav_msgs::Odometry::ConstPtr& msg)
   // decimal_t velocity{0.0};
   // decimal_t acceleration{0.0};
   // decimal_t steer{0.0};  // steering angle
+
+    tf::StampedTransform transform;
+    try{
+        // listener_.waitForTransform("/base_link", "/map", msg->header.stamp, ros::Duration(3.0));
+
+        pListener->lookupTransform("/map","/base_link", ros::Time::now()-ros::Duration(0.05), transform);
+            // std::cout << "transform exist\n";
+    }
+    catch (tf::TransformException ex){
+            ROS_ERROR("ODOM_CB: %s",ex.what());
+            ros::Duration(0.1).sleep();
+            return;
+     }    
+
+    // std::cout<<"POS body x: "<<transform.getOrigin().getX()<<"POS body y: "<<transform.getOrigin().getY()<<std::endl;
+    // std::cout<<"YAW body: "<<tf::getYaw(transform.getRotation())<<std::endl;
+
+    common::State state1 = vehicle_set_.vehicles[0].state();
+    // state1.time_stamp = timestamp;
+    state1.vec_position(0) = transform.getOrigin().getX();
+    state1.vec_position(1) = transform.getOrigin().getY();
+
+    // std::cout<<"velocity body x: "<<msg->twist.twist.linear.x<<" velocity body y: "<<msg->twist.twist.linear.y<<std::endl;
+    double angvel = msg->twist.twist.angular.z;
+    state1.steer = 0.0;//atan(0.3/(velocity_body(0)/angvel));
+    state1.angle = tf::getYaw(transform.getRotation());
+    state1.velocity = msg->twist.twist.linear.x;
+    vehicle_set_.vehicles[0].set_state(state1);
 
     vehicle_msgs::Encoder::GetRosVehicleSetFromVehicleSet(vehicle_set_, timestamp, frame_id,
                                    &msg1.vehicle_set);
