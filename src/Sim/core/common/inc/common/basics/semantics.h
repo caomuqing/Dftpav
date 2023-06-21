@@ -73,7 +73,7 @@ class VehicleParam {
   double max_longitudinal_acc_ = 2.0;
   double max_lateral_acc_ = 2.0;
 
-  double d_cr_ = 0.25;  // length between geometry center and rear axle
+  double d_cr_ = 0.15;  // length between geometry center and rear axle
 };
 
 class Vehicle {
