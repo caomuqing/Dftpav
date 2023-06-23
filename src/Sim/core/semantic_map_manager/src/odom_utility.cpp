@@ -2,6 +2,7 @@
 #include <math.h>
 #include <Eigen/Dense>
 #include <nav_msgs/Odometry.h>
+#include <nav_msgs/Path.h>
 
 #include <assert.h>
 #include <iostream>
@@ -31,10 +32,13 @@ using Json = nlohmann::json;
 ros::Timer SetpointpubCBTimer_;
 void SetpointpubCB(const ros::TimerEvent& e);
 void lines_cb(const visualization_msgs::Marker::ConstPtr& msg);
+void TimerCallback(const ros::TimerEvent&);
+void pubgoal_cb(const std_msgs::Bool::ConstPtr& msg);
+void globalplan_cb(const nav_msgs::Path::ConstPtr& msg);
 
 std::string vehicle_set_path_;
 common::VehicleSet vehicle_set_;
-ros::Publisher arena_info_dynamic_pub_, surround_traj_pub, arena_info_static_pub_;
+ros::Publisher arena_info_dynamic_pub_, surround_traj_pub, arena_info_static_pub_, goal_pub_, sgoal_pub_;
 bool ParseVehicleSet(common::VehicleSet *p_vehicle_set);
 void odom_cb(const nav_msgs::Odometry::ConstPtr& msg);
 void people_cb(const people_msgs::People::ConstPtr& msg);
@@ -46,6 +50,23 @@ double angularZ_ = 0.0;
 double pre_time = 3.0, deltatime = 0.5;
 visualization_msgs::Marker::ConstPtr line_msg_;
 bool initialized_=false;
+int current_leg_ = 0;
+double goal_radius_ = 0.5;
+double shortterm_dist_ = 3.0;
+nav_msgs::Path path_msg_;
+
+std::vector<double> easting;
+std::vector<double> northing;
+std::vector<double> height;
+std::vector<double> heading;
+std::vector<Eigen::Vector3d> initial_waypoints_;
+Eigen::Vector3d pos_;
+
+enum meta_state {IDLE, ONGOING, FINISH};
+meta_state meta_state_ = IDLE;
+enum tracking_state {tIDLE, tONGOING, tFINISH};
+tracking_state tstate_ = tIDLE;
+int tracking_leg_ = 0;
 
 int main(int argc, char *argv[]) {
 	// initialize ROS
@@ -57,6 +78,24 @@ int main(int argc, char *argv[]) {
   	}
     nh.getParam("deltatime",deltatime);
 
+    if(!nh.getParam("easting", easting) ||
+    !nh.getParam("northing", northing) ||
+    !nh.getParam("height", height) ||
+    !nh.getParam("heading", heading))
+    {
+      ROS_WARN("Error loading parameters!");
+      exit(-1);
+    }
+
+    for (size_t i = 0; i < easting.size(); i++) {
+
+      Eigen::Vector3d pos;
+      pos(0) = easting[i];
+      pos(1) = northing[i];
+      pos(2) = 0.0;
+      initial_waypoints_.push_back(pos);
+    }
+
   	ParseVehicleSet(&vehicle_set_);
     pListener = new (tf::TransformListener);
 
@@ -64,6 +103,8 @@ int main(int argc, char *argv[]) {
   	ros::Subscriber odom_sub = nh.subscribe<nav_msgs::Odometry>("/odom", 10, odom_cb);
     ros::Subscriber people_sub = nh.subscribe<people_msgs::People>("/people", 10, people_cb);
     ros::Subscriber lines_sub = nh.subscribe<visualization_msgs::Marker>("/line_markers", 10, lines_cb);
+    ros::Subscriber pubgoal_sub = nh.subscribe<std_msgs::Bool>("/pub_goal", 10, pubgoal_cb);
+    ros::Subscriber globalplan_sub = nh.subscribe<nav_msgs::Path>("/path_planning_node/GlobalPlanner/plan", 10, globalplan_cb);
 
   	arena_info_dynamic_pub_ =
       nh.advertise<vehicle_msgs::ArenaInfoDynamic>("/arena_info_dynamic", 10);
@@ -71,6 +112,9 @@ int main(int argc, char *argv[]) {
       nh.advertise<vehicle_msgs::ArenaInfoStatic>("/arena_info_static", 10);
   	surround_traj_pub = nh.advertise<visualization_msgs::MarkerArray>("/vis/parking_surround_trajs", 10);
     vis_pub_ = nh.advertise<visualization_msgs::Marker>( "visualization_odom_util", 0 );
+    goal_pub_= nh.advertise<geometry_msgs::PoseStamped>("/path_planning_simple/goal", 1);
+    ros::Timer timer = nh.createTimer(ros::Duration(1.0/3.0), TimerCallback);
+    sgoal_pub_= nh.advertise<geometry_msgs::PoseStamped>("/shortterm_goal", 1);
 
   	ros::spin();
 	ros::waitForShutdown();
@@ -78,6 +122,114 @@ int main(int argc, char *argv[]) {
 		// ros::spinOnce();
 	// }
 	return 0;
+}
+
+void globalplan_cb(const nav_msgs::Path::ConstPtr& msg)
+{
+  tstate_ = tONGOING;
+  tracking_leg_ = 0;
+  path_msg_ = *msg;
+  Eigen::Vector3d startpos(path_msg_.poses[tracking_leg_].pose.position.x,
+                           path_msg_.poses[tracking_leg_].pose.position.y,
+                           0.0);  
+  int leg_no_ = tracking_leg_;
+  for (int i = tracking_leg_+1; i < path_msg_.poses.size(); ++i)
+  {
+    Eigen::Vector3d endpos(path_msg_.poses[i].pose.position.x,
+                           path_msg_.poses[i].pose.position.y,
+                           0.0);  
+    if ((startpos - endpos).norm() > shortterm_dist_)
+    {
+      break;
+    }
+
+    leg_no_ = i;
+  }
+  tracking_leg_ = leg_no_;
+  sgoal_pub_.publish(path_msg_.poses[tracking_leg_]);
+
+}
+
+void TimerCallback(const ros::TimerEvent&)
+{
+  if (meta_state_ == ONGOING)
+  {
+    if ((initial_waypoints_[current_leg_]-pos_).norm()<goal_radius_)
+    {
+      current_leg_++;
+      if (current_leg_ == initial_waypoints_.size())
+      {
+        meta_state_ = FINISH;
+        return;
+      }
+      geometry_msgs::PoseStamped posemsg;
+      posemsg.header.stamp = ros::Time::now();
+      posemsg.header.frame_id = "map";
+      posemsg.pose.position.x = initial_waypoints_[current_leg_](0);
+      posemsg.pose.position.y = initial_waypoints_[current_leg_](1);
+      posemsg.pose.position.z = 0.0;
+      tf2::Quaternion quat_tf;
+      quat_tf.setRPY (0.0, 0.0, heading[current_leg_]/180.0*3.1415927);
+      posemsg.pose.orientation.x = quat_tf.x();
+      posemsg.pose.orientation.y = quat_tf.y();
+      posemsg.pose.orientation.z = quat_tf.z();
+      posemsg.pose.orientation.w = quat_tf.w();  
+      goal_pub_.publish(posemsg);
+    }
+  }
+
+  if (tstate_ == tONGOING)
+  {
+    Eigen::Vector3d startpos(path_msg_.poses[tracking_leg_].pose.position.x,
+                             path_msg_.poses[tracking_leg_].pose.position.y,
+                             0.0);      
+    if ((startpos - pos_).norm()<goal_radius_)
+    {
+      if (tracking_leg_ == path_msg_.poses.size()-1)
+      {
+        tstate_ = tFINISH;
+        return;
+      }
+      int leg_no_ = tracking_leg_;
+      for (int i = tracking_leg_+1; i < path_msg_.poses.size(); ++i)
+      {
+        Eigen::Vector3d endpos(path_msg_.poses[i].pose.position.x,
+                               path_msg_.poses[i].pose.position.y,
+                               0.0);  
+        if ((startpos - endpos).norm() > shortterm_dist_)
+        {
+          break;
+        }
+
+        leg_no_ = i;
+      }
+      tracking_leg_ = leg_no_;
+      sgoal_pub_.publish(path_msg_.poses[tracking_leg_]);      
+    }
+  }
+}
+
+void pubgoal_cb(const std_msgs::Bool::ConstPtr& msg)
+{
+  if (msg->data == true)
+  {
+    current_leg_ = 0;
+    meta_state_ = ONGOING;
+    geometry_msgs::PoseStamped posemsg;
+    posemsg.header.stamp = ros::Time::now();
+    posemsg.header.frame_id = "map";
+    posemsg.pose.position.x = initial_waypoints_[0](0);
+    posemsg.pose.position.y = initial_waypoints_[0](1);
+    posemsg.pose.position.z = 0.0;
+    tf2::Quaternion quat_tf;
+    quat_tf.setRPY (0.0, 0.0, heading[0]/180.0*3.1415927);
+    posemsg.pose.orientation.x = quat_tf.x();
+    posemsg.pose.orientation.y = quat_tf.y();
+    posemsg.pose.orientation.z = quat_tf.z();
+    posemsg.pose.orientation.w = quat_tf.w();        
+    goal_pub_.publish(posemsg);
+
+  }
 }
 
 void lines_cb(const visualization_msgs::Marker::ConstPtr& msg)
@@ -348,6 +500,9 @@ void odom_cb(const nav_msgs::Odometry::ConstPtr& msg)
 
     common::State state1 = vehicle_set_.vehicles[0].state();
     // state1.time_stamp = timestamp;
+    pos_(0) = transform.getOrigin().getX();
+    pos_(1) = transform.getOrigin().getY();
+
     state1.vec_position(0) = transform.getOrigin().getX();
     state1.vec_position(1) = transform.getOrigin().getY();
 

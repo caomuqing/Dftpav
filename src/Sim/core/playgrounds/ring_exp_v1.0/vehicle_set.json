@@ -21,7 +21,7 @@
         "params": {
           "width": 0.5,
           "length": 0.6,
-          "wheel_base": 0.5,
+          "wheel_base": 0.6,
           "front_suspension": 0.2,
           "rear_suspension": 0.2,
           "max_steering_angle": 45.0,

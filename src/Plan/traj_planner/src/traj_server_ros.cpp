@@ -47,7 +47,8 @@ namespace plan_utils
     nh.param("isparking", isparking,true);
     p_planner_   = new plan_manage::TrajPlanner(nh, ego_id, enable_urban_);
 
-    parking_sub_ = nh_.subscribe("/move_base_simple/goal", 1, &TrajPlannerServer::ParkingCallback, this);
+    parking_sub_ = nh_.subscribe("/shortterm_goal", 1, &TrajPlannerServer::ParkingCallback, this);
+    scan_sub_= nh_.subscribe("/scan", 1,  &TrajPlannerServer::ScanCallback, this);
 
     if(!isparking){
       trajplan = std::bind(&plan_manage::TrajPlanner::RunOnce,p_planner_);
@@ -237,23 +238,23 @@ namespace plan_utils
         common::State desired_state;
         if(map_adapter_.GetEgoState(&desired_state)==kSuccess)
         {
-          double max_yaw_rate_ = 120.0f/180.0f*3.14159;
-          double yaw_rate_tmp=wrapToPi(state.angle - desired_state.angle) * 2.0;
-          if (yaw_rate_tmp>max_yaw_rate_) yaw_rate_tmp = max_yaw_rate_;
-          else if (yaw_rate_tmp<-max_yaw_rate_) yaw_rate_tmp = -max_yaw_rate_;      
-          // std::cout<<"state.angle: "<<state.angle<<" desired_state.angle "<<desired_state.angle<<std::endl;    
-          // std::cout<<"yaw_rate_tmp "<<yaw_rate_tmp<<std::endl;    
+          // double max_yaw_rate_ = 120.0f/180.0f*3.14159;
+          // double yaw_rate_tmp=wrapToPi(state.angle - desired_state.angle) * 2.0;
+          // if (yaw_rate_tmp>max_yaw_rate_) yaw_rate_tmp = max_yaw_rate_;
+          // else if (yaw_rate_tmp<-max_yaw_rate_) yaw_rate_tmp = -max_yaw_rate_;      
+          // // std::cout<<"state.angle: "<<state.angle<<" desired_state.angle "<<desired_state.angle<<std::endl;    
+          // // std::cout<<"yaw_rate_tmp "<<yaw_rate_tmp<<std::endl;    
 
-          geometry_msgs::Twist cmd_msg;
-          cmd_msg.linear.x = state.velocity;
-          cmd_msg.linear.y = 0.0;
-          cmd_msg.linear.z = 0.0;
-          cmd_msg.angular.x = 0.0;
-          cmd_msg.angular.y = 0.0;
-          cmd_msg.angular.z = yaw_rate_tmp;
-          // cmd_msg.angular.z = state.velocity*tan(state.steer)/0.7;
+          // geometry_msgs::Twist cmd_msg;
+          // cmd_msg.linear.x = state.velocity;
+          // cmd_msg.linear.y = 0.0;
+          // cmd_msg.linear.z = 0.0;
+          // cmd_msg.angular.x = 0.0;
+          // cmd_msg.angular.y = 0.0;
+          // cmd_msg.angular.z = yaw_rate_tmp;
+          // // cmd_msg.angular.z = state.velocity*tan(state.steer)/0.7;
 
-          cmd_vel_pub_.publish(cmd_msg);              
+          // cmd_vel_pub_.publish(cmd_msg);              
         } 
        m.unlock();
        return;
@@ -319,8 +320,10 @@ namespace plan_utils
         // std::cout<<"state.angle: "<<state.angle<<"desired_state.angle "<<desired_state.angle<<std::endl;    
         // std::cout<<"yaw_rate_tmp "<<yaw_rate_tmp<<std::endl;    
 
+        double vel_cmd = std::min(0.5, std::max(-0.5, state.velocity)); //hard limit
+        if (scan_min_<0.4 || scan_min2_ <0.25) vel_cmd = std::min(0.0, vel_cmd);
         geometry_msgs::Twist cmd_msg;
-        cmd_msg.linear.x = state.velocity;
+        cmd_msg.linear.x = vel_cmd;
         cmd_msg.linear.y = 0.0;
         cmd_msg.linear.z = 0.0;
         cmd_msg.angular.x = 0.0;
@@ -589,6 +592,32 @@ namespace plan_utils
     p_planner_->setParkingEnd(end_pt_);
   }
 
+void TrajPlannerServer::ScanCallback(const sensor_msgs::LaserScan::ConstPtr& scan_msg)
+{
+    int i;
+    double scan_min=100, scan_min2 = 100;
+    double lsr_len=scan_msg->ranges.size();
+    double lsr_angle_inc=scan_msg->angle_increment;
+    double lsr_angle_min=scan_msg->angle_min;
+    for (i=0;i<(lsr_len-1);i++){
+
+      double angle=((double)(i)*lsr_angle_inc)+lsr_angle_min;
+
+      if (fabs(angle)<0.15)
+      {
+       if (scan_msg->ranges[i]<scan_min)
+          scan_min=scan_msg->ranges[i];        
+      }
+
+      if (fabs(angle)<1.0)
+      {
+       if (scan_msg->ranges[i]<scan_min2)
+          scan_min2=scan_msg->ranges[i];        
+      }
+    }
+    scan_min_ = scan_min;
+    scan_min2_ = scan_min2;
+}
 
 
 }  // namespace planning

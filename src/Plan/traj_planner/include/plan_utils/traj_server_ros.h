@@ -56,6 +56,8 @@
 #include <functional>
 #include <mutex>
 #include "geometry_msgs/Twist.h"
+#include "sensor_msgs/LaserScan.h"
+
 #define Budget 0.5
 namespace plan_utils
 {
@@ -150,9 +152,15 @@ namespace plan_utils
     //______________________
     /* for parking module */
     void ParkingCallback(const geometry_msgs::PoseStamped &msg);
+    void ScanCallback(const sensor_msgs::LaserScan::ConstPtr& scan_msg);
+
     bool CheckReplan();
     Eigen::Vector4d end_pt_;
     ros::Subscriber parking_sub_;
+    ros::Subscriber scan_sub_;
+    double scan_min_ = 100.0;
+    double scan_min2_ = 100.0;
+
     common::State ego_state;
     std::mutex m;
     

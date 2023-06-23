@@ -642,8 +642,8 @@ ErrorType SemanticMapManager::CheckCollisionUsingPosAndYaw(
   vec_E<Vec2f> vertices;
   common::OrientedBoundingBox2D obb_ego;
 
-  obb_ego.x = state(0) + vehicle_param.d_cr() * cos(state(2));
-  obb_ego.y = state(1) + vehicle_param.d_cr() * sin(state(2));
+  obb_ego.x = state(0) - 0.15 * cos(state(2));
+  obb_ego.y = state(1) - 0.15 * sin(state(2));
   obb_ego.angle = state(2);
   obb_ego.width = vehicle_param.width();
   obb_ego.length = vehicle_param.length();
