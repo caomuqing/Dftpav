@@ -34,8 +34,8 @@
         "subclass": "car",
         "type": "VehicleWithBicycleKinematics",
         "init_state": {
-          "x": -45.1,
-          "y": -4.87,
+          "x": -1000.1,
+          "y": -1000.87,
           "angle": 0,
           "curvature": 0.0,
           "velocity": 0.0,
@@ -58,8 +58,8 @@
         "subclass": "car",
         "type": "VehicleWithBicycleKinematics",
         "init_state": {
-          "x": -19.9,
-          "y": -5.0,
+          "x": -1000.9,
+          "y": -1000.0,
           "angle": 3.14,
           "curvature": -0.000711,
           "velocity": 0.0,
@@ -82,8 +82,8 @@
         "subclass": "car",
         "type": "VehicleWithBicycleKinematics",
         "init_state": {
-          "x": -17.25,
-          "y": 39.85,
+          "x": -1000.25,
+          "y": 1000.85,
           "angle": 0,
           "curvature": 0.0,
           "velocity": 0.0,
@@ -106,8 +106,8 @@
         "subclass": "car",
         "type": "VehicleWithBicycleKinematics",
         "init_state": {
-          "x": 11.55,
-          "y": -17.4,
+          "x": 1000.55,
+          "y": -1000.4,
           "angle": 3.14,
           "curvature": 0.0,
           "velocity": 0.0,

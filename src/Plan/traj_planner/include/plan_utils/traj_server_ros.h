@@ -116,6 +116,8 @@ namespace plan_utils
     bool is_replan_on_ = false;
     bool is_map_updated_ = false;
     bool use_sim_state_ = true;
+    double gain_heading_follow_ = 0.5;
+    double gain_heading_y_correction_ = 0.5;
 
     
     //_______________
@@ -171,7 +173,7 @@ namespace plan_utils
 
     /*publish the kinotraj as Path msg*/
     ros::Publisher kinopath_pub;
-
+    double last_replan;
 
   };
 

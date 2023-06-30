@@ -11,8 +11,8 @@ planner_cfg {
 
 
 map_cfg {
-  map_size_x: 1000
-  map_size_y: 1000
+  map_size_x: 1250
+  map_size_y: 1250
   map_size_z: 3
 
 
@@ -54,7 +54,7 @@ map_cfg {
   traj_gear_switch_penalty: 15.0
   traj_steer_penalty: 0.5
   traj_steer_change_penalty: 0.0
-  map_resl: 0.3
+  map_resl: 0.2
   step_arc: 0.9
   checkl: 0.2
   onedv_res: 0.2
@@ -68,7 +68,7 @@ opt_cfg {
   wei_sta_obs: 500.0
   wei_dyn_obs: 500.0
   wei_feas: 500.0
-  wei_sqrvar: 500.0
+  wei_sqrvar: 10.0
   wei_time: 10.0
   dyn_obs_clearance: 0.4
   half_margin: 0.15

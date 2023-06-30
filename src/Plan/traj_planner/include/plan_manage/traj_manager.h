@@ -96,7 +96,8 @@ namespace plan_manage
       return std::unique_ptr<plan_utils::KinoTrajData>(
         new plan_utils::KinoTrajData(kino_trajs_)); 
     }
-    
+    void getSurrTraj(plan_utils::SurroundTrajData& surround_trajsOut) {surround_trajsOut = surround_trajs;}
+    void updateSurrTraj();
     
     void setParkingEnd(Eigen::Vector4d end_pt_){
       end_pt = end_pt_;

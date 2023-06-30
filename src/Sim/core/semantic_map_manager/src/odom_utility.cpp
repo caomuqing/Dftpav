@@ -265,7 +265,7 @@ void lines_cb(const visualization_msgs::Marker::ConstPtr& msg)
                           endpt_local, line_msg_->header.frame_id, endpt_target);
     }
     catch (tf::TransformException ex){
-        ROS_ERROR("%s",ex.what());
+        // ROS_ERROR("%s",ex.what());
         // ros::Duration(1.0).sleep();
         return;
      }
@@ -490,7 +490,7 @@ void odom_cb(const nav_msgs::Odometry::ConstPtr& msg)
             // std::cout << "transform exist\n";
     }
     catch (tf::TransformException ex){
-            ROS_ERROR("ODOM_CB: %s",ex.what());
+            // ROS_ERROR("ODOM_CB: %s",ex.what());
             ros::Duration(0.1).sleep();
             return;
      }    

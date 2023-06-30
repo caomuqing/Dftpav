@@ -658,7 +658,14 @@ namespace plan_manage
 
   }
 
-
+  void TrajPlanner::updateSurrTraj()
+  {
+    if(map_itf_->GetMovingObsTraj(&sur_discretePoints)!=kSuccess){
+      return;
+    }
+    ConverSurroundTrajFromPoints(sur_discretePoints,&surround_trajs);
+  }
+  
   void TrajPlanner::printLateralBehavior(LateralBehavior lateral_behavior){
     static std::string lateral_behavior_str[5] = {"kUndefined", "kLaneKeeping", "kLaneChangeLeft", "kLaneChangeRight"};
     std::cout  <<  "\033[34m[LateralBehavior]The behavior is: " << lateral_behavior_str[int(lateral_behavior)] <<  "\033[0m" << std::endl; 

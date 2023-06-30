@@ -71,6 +71,8 @@ namespace plan_utils
 
     p_planner_->Init(config_path);
     nh_.param("use_sim_state", use_sim_state_, true);
+    nh_.param("gain_heading_follow", gain_heading_follow_, 0.4);
+    nh_.param("gain_heading_y_correction", gain_heading_y_correction_, 0.6);
     std::string traj_topic = std::string("/vis/agent_") +
                            std::to_string(ego_id_) +
                            std::string("/minco/exec_traj");
@@ -166,11 +168,12 @@ namespace plan_utils
       static int fsm_num = 0;
       fsm_num++;
       if (fsm_num > 100000||CheckReplan()) {
+        ErrorType replanResult; 
         if (next_traj_ == nullptr) {
-          Replan();
+          replanResult = Replan();
           // return;
         }
-        if (next_traj_ !=nullptr) {
+        if (next_traj_ !=nullptr && replanResult == kSuccess) {
           m.lock();
           executing_traj_ = std::move(next_traj_);
           next_traj_.release();
@@ -184,6 +187,12 @@ namespace plan_utils
     // ros::Duration(100.0).sleep();
 
           return;
+        }
+        else
+        {
+          m.lock();
+          if (executing_traj_!=nullptr) executing_traj_.release();
+          m.unlock();
         }
       }
 
@@ -238,23 +247,17 @@ namespace plan_utils
         common::State desired_state;
         if(map_adapter_.GetEgoState(&desired_state)==kSuccess)
         {
-          // double max_yaw_rate_ = 120.0f/180.0f*3.14159;
-          // double yaw_rate_tmp=wrapToPi(state.angle - desired_state.angle) * 2.0;
-          // if (yaw_rate_tmp>max_yaw_rate_) yaw_rate_tmp = max_yaw_rate_;
-          // else if (yaw_rate_tmp<-max_yaw_rate_) yaw_rate_tmp = -max_yaw_rate_;      
-          // // std::cout<<"state.angle: "<<state.angle<<" desired_state.angle "<<desired_state.angle<<std::endl;    
-          // // std::cout<<"yaw_rate_tmp "<<yaw_rate_tmp<<std::endl;    
 
-          // geometry_msgs::Twist cmd_msg;
-          // cmd_msg.linear.x = state.velocity;
-          // cmd_msg.linear.y = 0.0;
-          // cmd_msg.linear.z = 0.0;
-          // cmd_msg.angular.x = 0.0;
-          // cmd_msg.angular.y = 0.0;
-          // cmd_msg.angular.z = yaw_rate_tmp;
-          // // cmd_msg.angular.z = state.velocity*tan(state.steer)/0.7;
+          geometry_msgs::Twist cmd_msg;
+          cmd_msg.linear.x = 0.0;
+          cmd_msg.linear.y = 0.0;
+          cmd_msg.linear.z = 0.0;
+          cmd_msg.angular.x = 0.0;
+          cmd_msg.angular.y = 0.0;
+          cmd_msg.angular.z = 0.0;
+          // cmd_msg.angular.z = state.velocity*tan(state.steer)/0.7;
 
-          // cmd_vel_pub_.publish(cmd_msg);              
+          cmd_vel_pub_.publish(cmd_msg);              
         } 
        m.unlock();
        return;
@@ -313,23 +316,34 @@ namespace plan_utils
       {
         ctrl_signal_pub_.publish(ctrl_msg);
 
-        double max_yaw_rate_ = 80.0f/180.0f*3.14159;
-        double yaw_rate_tmp=wrapToPi(state.angle - desired_state.angle) * 2.0;
-        if (yaw_rate_tmp>max_yaw_rate_) yaw_rate_tmp = max_yaw_rate_;
-        else if (yaw_rate_tmp<-max_yaw_rate_) yaw_rate_tmp = -max_yaw_rate_;                  
+        Eigen::Matrix<double, 2, 2> rot;
+        double theta = -desired_state.angle;
+        rot << cos(theta), -sin(theta),
+                sin(theta), cos(theta);
+        Vecf<2> pos_error = rot * (state.vec_position - desired_state.vec_position);           
+        std::cout<<"angle: "<<desired_state.angle/3.14*180<< " pos error x: "<<pos_error(0)<<" pos error y: "<<pos_error(1)<<std::endl;    
+
         // std::cout<<"state.angle: "<<state.angle<<"desired_state.angle "<<desired_state.angle<<std::endl;    
         // std::cout<<"yaw_rate_tmp "<<yaw_rate_tmp<<std::endl;    
-
-        double vel_cmd = std::min(0.5, std::max(-0.5, state.velocity)); //hard limit
+        // std::cout<<"ratio is "<<state.velocity*tan(state.steer)/0.7/yaw_rate_tmp<<std::endl;    
+        double maxx = 0.5;
+        double vel_cmd = std::min(maxx, std::max(-maxx, state.velocity) + pos_error(0)*0.4); //hard limit
         if (scan_min_<0.4 || scan_min2_ <0.25) vel_cmd = std::min(0.0, vel_cmd);
+
+        double max_yaw_rate_ = 30.0f/180.0f*3.14159;
+        double yaw_rate_tmp_follow =wrapToPi(state.angle - desired_state.angle) * gain_heading_follow_;
+        double yaw_rate_tmp = (vel_cmd>0.0? 1.0 : -1.0) * gain_heading_y_correction_ * pos_error(1) + yaw_rate_tmp_follow;
+        if (yaw_rate_tmp>max_yaw_rate_) yaw_rate_tmp = max_yaw_rate_;
+        else if (yaw_rate_tmp<-max_yaw_rate_) yaw_rate_tmp = -max_yaw_rate_;    
+
         geometry_msgs::Twist cmd_msg;
         cmd_msg.linear.x = vel_cmd;
         cmd_msg.linear.y = 0.0;
         cmd_msg.linear.z = 0.0;
         cmd_msg.angular.x = 0.0;
         cmd_msg.angular.y = 0.0;
-        cmd_msg.angular.z = yaw_rate_tmp;
-        cmd_msg.angular.z = state.velocity*tan(state.steer)/0.7;
+        // cmd_msg.angular.z = yaw_rate_tmp;
+        cmd_msg.angular.z = state.velocity*(tan(state.steer)/0.7+yaw_rate_tmp);
 
         cmd_vel_pub_.publish(cmd_msg);              
       }
@@ -426,6 +440,7 @@ namespace plan_utils
 
   bool TrajPlannerServer::CheckReplan(){
       //return 1: replan 0: not
+      // std::cout<<"checking replan!! "<<std::endl;
       if(executing_traj_==nullptr) return true;
       bool is_near = false;
       bool is_collision = false;
@@ -449,7 +464,11 @@ namespace plan_utils
       if(is_near && !is_close_turnPoint&&(localTarget-end_pt_.head(2)).norm()>0.1){
         return true;
       }
-      //collision-check
+      //collision-check    
+      p_planner_->updateSurrTraj();
+      plan_utils::SurroundTrajData dymicObs;
+      p_planner_->getSurrTraj(dymicObs);  
+      double tt = 0.0;
       for(int i = 0; i < executing_traj_->size(); i++){
         for(double t = 0.0; t < executing_traj_->at(i).duration; t+=0.05){
           Eigen::Vector2d pos;
@@ -460,10 +479,30 @@ namespace plan_utils
           state << pos[0],pos[1],yaw;
           map_adapter_.CheckIfCollisionUsingPosAndYaw(vp_,state,&is_collision);
           if(is_collision)  return true;   
-        }
 
+          double ttt = tt + t;
+          // std::cout<<"dymicObs.size is "<<dymicObs.size()<<std::endl;
+
+          // dynamic obstacles recheck
+          for (int sur_id = 0; sur_id < dymicObs.size(); sur_id++)
+          {
+            if (ttt < dymicObs[sur_id].duration)
+            {
+              // std::cout<<"ttt is "<<ttt<<std::endl;
+
+              // std::cout<<"dymicObs[sur_id].duration is "<<dymicObs[sur_id].duration<<std::endl;
+              Eigen::Vector2d surround_p = dymicObs[sur_id].traj.getPos(ttt);
+              // std::cout<<"surround_p is "<<surround_p<<std::endl;
+              // std::cout<<"pos is "<<pos<<std::endl;
+
+              if ((surround_p - pos).norm()<0.7) return true; 
+            }    
+          }
+      
+        }
+        tt += executing_traj_->at(i).duration;
       }
-      // executing_traj_/
+      // tracking error recheck
       common::State desired_state;
       if(map_adapter_.GetEgoState(&desired_state)==kSuccess)
       {
@@ -472,8 +511,10 @@ namespace plan_utils
         common::State state;
         double t = ros::Time::now().toSec();
         executing_traj_->at(exe_traj_index_).traj.GetState(t-executing_traj_->at(exe_traj_index_).start_time, &state);
-        if ((pos - state.vec_position).norm()>0.3 || fabs(yaw - state.angle)>0.15)
+        if ((ros::Time::now().toSec()-last_replan)>1.0 &&
+          ((pos - state.vec_position).norm()>0.30 )) //|| fabs(yaw - state.angle)>0.15
           return true;
+
       }
       return false;
       // map_adapter_.CheckIfCollisionUsingPosAndYaw   
@@ -497,6 +538,7 @@ namespace plan_utils
         return kWrongStatus;
       }
         //wait 
+      last_replan = ros::Time::now().toSec();
       double curt = ros::Time::now().toSec();
       if(0){
       // if(curt>desired_state.time_stamp){
@@ -548,6 +590,7 @@ namespace plan_utils
       time_profile_tool_.toc());
 
       //wait 
+      last_replan = ros::Time::now().toSec();
       double curt = ros::Time::now().toSec();
       if(curt>desired_state.time_stamp){
         ROS_WARN("exceed time budget");
