@@ -839,474 +839,474 @@ namespace plan_manage
   }
 
   // using the circle model, for other cars(with same parameters)
-  bool PolyTrajOptimizer::surroundGradCostP(const int i_dp,           // index of constraint point
-                                            const double t,           // current absolute time
-                                            const Eigen::Vector2d &p, // the rear model
-                                            const Eigen::Vector2d &v,
-                                            Eigen::Vector2d &gradp,
-                                            double &gradt,
-                                            double &grad_prev_t,
-                                            double &costp)
-  {
-    if (i_dp <= 0) return false;
-    if (surround_trajs_->size() < 1) return false;
+  // bool PolyTrajOptimizer::surroundGradCostP(const int i_dp,           // index of constraint point
+  //                                           const double t,           // current absolute time
+  //                                           const Eigen::Vector2d &p, // the rear model
+  //                                           const Eigen::Vector2d &v,
+  //                                           Eigen::Vector2d &gradp,
+  //                                           double &gradt,
+  //                                           double &grad_prev_t,
+  //                                           double &costp)
+  // {
+  //   if (i_dp <= 0) return false;
+  //   if (surround_trajs_->size() < 1) return false;
 
-    bool ret = false;
+  //   bool ret = false;
 
-    gradp.setZero();
-    gradt = 0;
-    grad_prev_t = 0;
-    costp = 0;
+  //   gradp.setZero();
+  //   gradt = 0;
+  //   grad_prev_t = 0;
+  //   costp = 0;
 
-    const double CLEARANCE2 = (surround_clearance_ * 1.5) * (surround_clearance_ * 1.5);
-    // only counts when the distance is smaller than clearance
+  //   const double CLEARANCE2 = (surround_clearance_ * 1.5) * (surround_clearance_ * 1.5);
+  //   // only counts when the distance is smaller than clearance
 
-    constexpr double b = 1.0, inv_b2 = 1 / b / b;
+  //   constexpr double b = 1.0, inv_b2 = 1 / b / b;
 
-    double pt_time = t_now_ + t;
+  //   double pt_time = t_now_ + t;
 
-    if (surround_trajs_->size() < 1) return false;
+  //   if (surround_trajs_->size() < 1) return false;
 
-    for (size_t id = 0; id < surround_trajs_->size(); id++)
-    {
+  //   for (size_t id = 0; id < surround_trajs_->size(); id++)
+  //   {
 
-      double traj_i_satrt_time = surround_trajs_->at(id).start_time;
+  //     double traj_i_satrt_time = surround_trajs_->at(id).start_time;
 
-      Eigen::Vector2d surround_p, surround_v;
-      if (pt_time < traj_i_satrt_time + surround_trajs_->at(id).duration)
-      {
-        surround_p = surround_trajs_->at(id).traj.getPos(pt_time - traj_i_satrt_time);
-        surround_v = surround_trajs_->at(id).traj.getdSigma(pt_time - traj_i_satrt_time);
-      }
-      else
-      {
-        double exceed_time = pt_time - (traj_i_satrt_time + surround_trajs_->at(id).duration);
-        surround_v = surround_trajs_->at(id).traj.getdSigma(surround_trajs_->at(id).duration);
-        surround_p = surround_trajs_->at(id).traj.getPos(surround_trajs_->at(id).duration) +
-                     exceed_time * surround_v;
-      }
+  //     Eigen::Vector2d surround_p, surround_v;
+  //     if (pt_time < traj_i_satrt_time + surround_trajs_->at(id).duration)
+  //     {
+  //       surround_p = surround_trajs_->at(id).traj.getPos(pt_time - traj_i_satrt_time);
+  //       surround_v = surround_trajs_->at(id).traj.getdSigma(pt_time - traj_i_satrt_time);
+  //     }
+  //     else
+  //     {
+  //       double exceed_time = pt_time - (traj_i_satrt_time + surround_trajs_->at(id).duration);
+  //       surround_v = surround_trajs_->at(id).traj.getdSigma(surround_trajs_->at(id).duration);
+  //       surround_p = surround_trajs_->at(id).traj.getPos(surround_trajs_->at(id).duration) +
+  //                    exceed_time * surround_v;
+  //     }
 
-      Eigen::Vector2d dist_vec = p - surround_p;
-      double ellip_dist2 = (dist_vec(0) * dist_vec(0) + dist_vec(1) * dist_vec(1)) * inv_b2;
-      double dist2_err = CLEARANCE2 - ellip_dist2;
-      double dist2_err2 = dist2_err * dist2_err;
-      double dist2_err3 = dist2_err2 * dist2_err;
+  //     Eigen::Vector2d dist_vec = p - surround_p;
+  //     double ellip_dist2 = (dist_vec(0) * dist_vec(0) + dist_vec(1) * dist_vec(1)) * inv_b2;
+  //     double dist2_err = CLEARANCE2 - ellip_dist2;
+  //     double dist2_err2 = dist2_err * dist2_err;
+  //     double dist2_err3 = dist2_err2 * dist2_err;
 
-      if (dist2_err3 > 0) // only accout the cost term when the distance is within the clearance
-      {
-        ret = true;
+  //     if (dist2_err3 > 0) // only accout the cost term when the distance is within the clearance
+  //     {
+  //       ret = true;
 
-        costp += wei_surround_ * dist2_err3;
-        Eigen::Vector2d dJ_dP = wei_surround_ * 3 * dist2_err2 * (-2) * Eigen::Vector2d(inv_b2 * dist_vec(0), inv_b2 * dist_vec(1));
-        gradp += dJ_dP;
-        gradt += dJ_dP.dot(v - surround_v);
-        grad_prev_t += dJ_dP.dot(-surround_v);
-      }
+  //       costp += wei_surround_ * dist2_err3;
+  //       Eigen::Vector2d dJ_dP = wei_surround_ * 3 * dist2_err2 * (-2) * Eigen::Vector2d(inv_b2 * dist_vec(0), inv_b2 * dist_vec(1));
+  //       gradp += dJ_dP;
+  //       gradt += dJ_dP.dot(v - surround_v);
+  //       grad_prev_t += dJ_dP.dot(-surround_v);
+  //     }
 
-      if (min_ellip_dist2_ > ellip_dist2)
-      {
-        min_ellip_dist2_ = ellip_dist2;
-      }
-    }
+  //     if (min_ellip_dist2_ > ellip_dist2)
+  //     {
+  //       min_ellip_dist2_ = ellip_dist2;
+  //     }
+  //   }
 
-    return ret;
-  }
-double PolyTrajOptimizer::debugGradCheck(const int i_dp, // index of constraint point
-                                         double t, // current absolute time
-                                        Eigen::Vector2d sigma, // the rear model 
-                                        Eigen::Vector2d dsigma,
-                                        Eigen::Vector2d ddsigma,                                  
-                                        const int trajid, const int sur_id,double res_t,Eigen::Matrix<double, 6, 2> c,int i ,int j,
-                                        double omg,double step,double wei_surround_, int K){
-  Eigen::Matrix2d ego_R, help_R;                                          
-  int singul_ = singul_container[trajid];
-  if (surround_trajs_==NULL||surround_trajs_->size() < 1) return false;
-  double alpha = 100.0, d_min = surround_clearance_ + std::log(8.0) / alpha; // may have problems hzc
-  double pt_time ;
-  double traj_i_satrt_time = surround_trajs_->at(sur_id).start_time;
-  
-  double dG_dsd, temp0, temp0_reci, temp1, temp2, temp3, temp4, temp5, temp6, temp7;
-  double temp_sur0, temp_sur_reci0, temp_sur1, temp_sur2, temp_sur3;
-  Eigen::Vector2d temp_vec1, temp_vec2, temp_vec3, temp_vec4;
-  Eigen::Matrix<double, 2, 8> grad_sd_sigma, grad_sd_dsigma;
-  Eigen::Matrix<double, 2, 4> ego_bound_points, surround_bound_points;
-  Eigen::VectorXd grad_sd_rt(8), grad_sd_prevt(8);
-  Eigen::VectorXd signed_dists(8),   ego_signed_dists1(4), ego_signed_dists2(4),ego_signed_dists3(4), ego_signed_dists4(4),
-        surround_signed_dists1(4), surround_signed_dists2(4),surround_signed_dists3(4), surround_signed_dists4(4);
-  Eigen::Vector2d surround_p, surround_v, surround_a;
-  Eigen::Matrix2d surround_R,help_surround_R;
-  Eigen::Vector2d temp_point;
-  double surround_exp_sum1, surround_exp_sum2,surround_exp_sum3,surround_exp_sum4,
-          ego_exp_sum1, ego_exp_sum2,ego_exp_sum3, ego_exp_sum4, exp_sum;
-  double z_h0;
-
-  double offsettime =  t_now_ - traj_i_satrt_time;
-
-  pt_time= offsettime + t;
-
-  z_h0 = 1.0/dsigma.norm();
-  ego_R << dsigma(0), -dsigma(1),
-            dsigma(1),  dsigma(0);
-  ego_R = ego_R * z_h0;
-  help_R << ddsigma(0), -ddsigma(1),
-            ddsigma(1),  ddsigma(0);
-  help_R = help_R * z_h0;
-
-  temp0 = dsigma.norm(); //  ||dsigma||_2
-  
-  if (temp0 != 0.0){
-    temp0_reci = 1.0 / temp0;
-  }else{
-    temp0_reci = 0.0;
-    ROS_ERROR("1111111111111111111111111111111111111111111111111111");
-  }
-  temp1 = double(dsigma.transpose() * sigma) * temp0_reci; //(dsigma.transpose() * sigma) / temp0_reci; // dsigma^T * sigma /  ||dsigma||_2
-  temp2 = double(dsigma.transpose() * B_h * sigma) * temp0_reci;
-  temp3 = temp0_reci * temp0_reci; // ||dsigma||_2^2
-  temp4 = temp3 * temp0_reci; // ||dsigma||_2^3
-  temp5 = double(ddsigma.transpose() * dsigma) * temp3;
-  temp6 = -(temp0 + double(ddsigma.transpose() * sigma) * temp0_reci - temp5 * temp1);
-  temp7 = -(double(ddsigma.transpose() * B_h * sigma) * temp0_reci - temp5 * temp2);
-  temp_vec1 = -(sigma * temp0_reci - temp1 * temp3 * dsigma);
-  temp_vec2 = -(B_h * sigma * temp0_reci - temp2 * temp3 * dsigma);
-
-
-  if (pt_time < surround_trajs_->at(sur_id).duration)
-  {
-    surround_p = surround_trajs_->at(sur_id).traj.getPos(pt_time );
-    surround_v = surround_trajs_->at(sur_id).traj.getdSigma(pt_time );
-    surround_a = surround_trajs_->at(sur_id).traj.getddSigma(pt_time);
-
-    // double tmptime = pt_time-traj_i_satrt_time;
-    // int idx = surround_trajs_->at(sur_id).traj.locatePieceIdx(tmptime);
-    // Eigen::Matrix<double, 6, 2> coef= surround_trajs_->at(sur_id).traj[idx].getCoeffMat().transpose();
-    // double surs1,surs2,surs3,surs4,surs5;
-    // Eigen::Matrix<double, 6, 1> surbeta0, surbeta1,surbeta2;
-    // surs1 = tmptime ;
-    // surs2 = surs1 * surs1;
-    // surs3 = surs2 * surs1;
-    // surs4 = surs2 * surs2;
-    // surs5 = surs4 * surs1;
-    // surbeta0 << 1.0, surs1, surs2, surs3, surs4, surs5;
-    // surbeta1 << 0.0, 1.0, 2.0 * surs1, 3.0 * surs2, 4.0 * surs3, 5.0 * surs4;
-    // surbeta2 << 0.0, 0.0, 2.0, 6.0 * surs1, 12.0 * surs2, 20.0 * surs3;
-    // surround_p = coef.transpose() * surbeta0;
-    // surround_v = coef.transpose() * surbeta1;
-    // surround_a = coef.transpose() * surbeta2;
-
-  }
-  else
-  {
-    double exceed_time = pt_time - surround_trajs_->at(sur_id).duration;
-    surround_a = surround_trajs_->at(sur_id).traj.getddSigma(surround_trajs_->at(sur_id).duration);
-    surround_v = surround_trajs_->at(sur_id).traj.getdSigma(surround_trajs_->at(sur_id).duration) +
-                  exceed_time * surround_a;
-    surround_p = surround_trajs_->at(sur_id).traj.getPos(surround_trajs_->at(sur_id).duration) +
-                  exceed_time * surround_trajs_->at(sur_id).traj.getdSigma(surround_trajs_->at(sur_id).duration) + 
-                  0.5 * surround_a * exceed_time * exceed_time;
-    //surround_a may be set as 0 problem?
-    ROS_ERROR("ASDASDASDASDASDA");
-  }
-
-  temp_sur0 = surround_v.norm();
-  if (temp_sur0 != 0.0)
-  {
-    temp_sur_reci0 = 1.0 / temp_sur0;
-  }
-  else
-  {
-    temp_sur_reci0 = 0.0;
-    ROS_ERROR("2222222222222222222222222222222222222222222222222222222");
-  }
-  
-
-
-
-
-  temp_sur1 = double(surround_v.transpose() * surround_p) * temp_sur_reci0;
-  temp_sur2 = double(surround_v.transpose() * B_h * surround_p) * temp_sur_reci0;
-  temp_sur3 = double(surround_a.transpose() * surround_v) * (temp_sur_reci0 * temp_sur_reci0);
-
-  surround_R << surround_v(0), -surround_v(1),
-      surround_v(1), surround_v(0);
-  surround_R = surround_R * temp_sur_reci0;
-  help_surround_R << surround_a(0),-surround_a(1),
-                      surround_a(1),surround_a(0);
-  help_surround_R = help_surround_R * temp_sur_reci0;
-
-  //  ==========the help intermediate variables.
-
-  // ===========the help intermediate variables.
-  Eigen::Vector4d dtemp1;
-  Eigen::VectorXd sdis; sdis.resize(8);
-  for (unsigned int i = 0; i < 4; i++)
-  {
-    Eigen::Vector2d lz = lz_set_.at(i);
-    lz(0) += singul_ * veh_param_.d_cr();
-
-    temp_point = sigma + ego_R * lz;
-    ego_signed_dists1(i) = double(surround_v.transpose() * temp_point) * temp_sur_reci0; // cr0 
-    ego_signed_dists2(i) = double(-surround_v.transpose() * temp_point) * temp_sur_reci0; //cr1
-    ego_signed_dists3(i) = double(surround_v.transpose() * B_h * temp_point) * temp_sur_reci0; //cr3
-    ego_signed_dists4(i) = double(-surround_v.transpose() * B_h * temp_point) * temp_sur_reci0; //cr2
-    ego_bound_points.col(i) = temp_point; // 2*1
-
-    temp_point = surround_p + surround_R * lz;
-    surround_signed_dists1(i) = double(dsigma.transpose() * temp_point) * temp0_reci; // cr0
-    dtemp1[i] = surround_signed_dists1(i);
-    surround_signed_dists2(i) = double(-dsigma.transpose() * temp_point) * temp0_reci; //cr1
-    surround_signed_dists3(i) = double(dsigma.transpose() * B_h * temp_point) * temp0_reci; //cr3
-    surround_signed_dists4(i) = double(-dsigma.transpose() * B_h * temp_point) * temp0_reci; //cr2
-    surround_bound_points.col(i) = temp_point;
-  }
-
-  // d1_ego - d4_ego
-  signed_dists(0) = log_sum_exp(-alpha, surround_signed_dists1, surround_exp_sum1) - temp1 - veh_param_.d_cr() - veh_param_.length() / 2.0;
-  signed_dists(1) = log_sum_exp(-alpha, surround_signed_dists2, surround_exp_sum2) + temp1 + veh_param_.d_cr() - veh_param_.length() / 2.0;
-  signed_dists(2) = log_sum_exp(-alpha, surround_signed_dists3, surround_exp_sum3) - temp2 - veh_param_.width() / 2.0;
-  signed_dists(3) = log_sum_exp(-alpha, surround_signed_dists4, surround_exp_sum4) + temp2 - veh_param_.width() / 2.0;
-
-  // d1_sur = d4_sur
-  signed_dists(4) = log_sum_exp(-alpha, ego_signed_dists1, ego_exp_sum1) - temp_sur1 - veh_param_.d_cr() - veh_param_.length() / 2.0;
-  signed_dists(5) = log_sum_exp(-alpha, ego_signed_dists2, ego_exp_sum2) + temp_sur1 + veh_param_.d_cr() - veh_param_.length() / 2.0;
-  signed_dists(6) = log_sum_exp(-alpha, ego_signed_dists3, ego_exp_sum3) - temp_sur2 - veh_param_.width() / 2.0;
-  signed_dists(7) = log_sum_exp(-alpha, ego_signed_dists4, ego_exp_sum4) + temp_sur2 - veh_param_.width() / 2.0;
-  // ------------------------------- add cost
-  for(int i = 0;i<8;i++)
-    sdis(i) = signed_dists(i);
-  
-  // std::cout<<"t: "<<t<<" put: "<<pt_time<<std::endl;
-  // std::cout<<"sigma: "<<sigma.transpose()<<" dsigma: "<<dsigma.transpose()<<std::endl;
-  // std::cout<<"surp: "<<surround_p.transpose()<<" surv: "<<surround_v.transpose()<<std::endl;
-  // std::cout<<"yaw: "<<atan2(dsigma[1],dsigma[0])<<" pyaw: "<<atan2(surround_v[1],surround_v[0])<<std::endl;
-  // std::cout<<"signedis: "<<signed_dists.transpose()<<std::endl;
-
-
-
-
-  Eigen::Vector4d at;
-  at << - temp_sur1 - veh_param_.d_cr() - veh_param_.length() / 2.0,
-        + temp_sur1 + veh_param_.d_cr() - veh_param_.length() / 2.0,
-        - temp_sur2 - veh_param_.width() / 2.0 ,+ temp_sur2 - veh_param_.width() / 2.0;
-
-
-  double d_value1 = d_min -log_sum_exp(alpha, signed_dists, exp_sum);
-  double pena1,penaD1;
-  positiveSmoothedL1(d_value1,pena1,penaD1);
-  double f1 = omg * step * wei_surround_ * pena1;
-  //3,2
-
-  double delta = 1.0e-9;
-  
-  // t = 0.0;
-  // res_t = 0.0;
-  // // //i j 
-  // for(int id1 = 0; id1 < i; id1++){
-  //   t += jerkOpt_container[trajid].get_T1()(id1);
+  //   return ret;
   // }
-  // res_t = j * (jerkOpt_container[trajid].get_T1()(i)+delta) / K;
-  // t += res_t;
-  // step = (jerkOpt_container[trajid].get_T1()(i)+delta) / K;
+// double PolyTrajOptimizer::debugGradCheck(const int i_dp, // index of constraint point
+//                                          double t, // current absolute time
+//                                         Eigen::Vector2d sigma, // the rear model 
+//                                         Eigen::Vector2d dsigma,
+//                                         Eigen::Vector2d ddsigma,                                  
+//                                         const int trajid, const int sur_id,double res_t,Eigen::Matrix<double, 6, 2> c,int i ,int j,
+//                                         double omg,double step,double wei_surround_, int K){
+//   Eigen::Matrix2d ego_R, help_R;                                          
+//   int singul_ = singul_container[trajid];
+//   if (surround_trajs_==NULL||surround_trajs_->size() < 1) return false;
+//   double alpha = 100.0, d_min = surround_clearance_ + std::log(8.0) / alpha; // may have problems hzc
+//   double pt_time ;
+//   double traj_i_satrt_time = surround_trajs_->at(sur_id).start_time;
+  
+//   double dG_dsd, temp0, temp0_reci, temp1, temp2, temp3, temp4, temp5, temp6, temp7;
+//   double temp_sur0, temp_sur_reci0, temp_sur1, temp_sur2, temp_sur3;
+//   Eigen::Vector2d temp_vec1, temp_vec2, temp_vec3, temp_vec4;
+//   Eigen::Matrix<double, 2, 8> grad_sd_sigma, grad_sd_dsigma;
+//   Eigen::Matrix<double, 2, 4> ego_bound_points, surround_bound_points;
+//   Eigen::VectorXd grad_sd_rt(8), grad_sd_prevt(8);
+//   Eigen::VectorXd signed_dists(8),   ego_signed_dists1(4), ego_signed_dists2(4),ego_signed_dists3(4), ego_signed_dists4(4),
+//         surround_signed_dists1(4), surround_signed_dists2(4),surround_signed_dists3(4), surround_signed_dists4(4);
+//   Eigen::Vector2d surround_p, surround_v, surround_a;
+//   Eigen::Matrix2d surround_R,help_surround_R;
+//   Eigen::Vector2d temp_point;
+//   double surround_exp_sum1, surround_exp_sum2,surround_exp_sum3,surround_exp_sum4,
+//           ego_exp_sum1, ego_exp_sum2,ego_exp_sum3, ego_exp_sum4, exp_sum;
+//   double z_h0;
 
-  t+=delta;
+//   double offsettime =  t_now_ - traj_i_satrt_time;
+
+//   pt_time= offsettime + t;
+
+//   z_h0 = 1.0/dsigma.norm();
+//   ego_R << dsigma(0), -dsigma(1),
+//             dsigma(1),  dsigma(0);
+//   ego_R = ego_R * z_h0;
+//   help_R << ddsigma(0), -ddsigma(1),
+//             ddsigma(1),  ddsigma(0);
+//   help_R = help_R * z_h0;
+
+//   temp0 = dsigma.norm(); //  ||dsigma||_2
+  
+//   if (temp0 != 0.0){
+//     temp0_reci = 1.0 / temp0;
+//   }else{
+//     temp0_reci = 0.0;
+//     ROS_ERROR("1111111111111111111111111111111111111111111111111111");
+//   }
+//   temp1 = double(dsigma.transpose() * sigma) * temp0_reci; //(dsigma.transpose() * sigma) / temp0_reci; // dsigma^T * sigma /  ||dsigma||_2
+//   temp2 = double(dsigma.transpose() * B_h * sigma) * temp0_reci;
+//   temp3 = temp0_reci * temp0_reci; // ||dsigma||_2^2
+//   temp4 = temp3 * temp0_reci; // ||dsigma||_2^3
+//   temp5 = double(ddsigma.transpose() * dsigma) * temp3;
+//   temp6 = -(temp0 + double(ddsigma.transpose() * sigma) * temp0_reci - temp5 * temp1);
+//   temp7 = -(double(ddsigma.transpose() * B_h * sigma) * temp0_reci - temp5 * temp2);
+//   temp_vec1 = -(sigma * temp0_reci - temp1 * temp3 * dsigma);
+//   temp_vec2 = -(B_h * sigma * temp0_reci - temp2 * temp3 * dsigma);
+
+
+//   if (pt_time < surround_trajs_->at(sur_id).duration)
+//   {
+//     surround_p = surround_trajs_->at(sur_id).traj.getPos(pt_time );
+//     surround_v = surround_trajs_->at(sur_id).traj.getdSigma(pt_time );
+//     surround_a = surround_trajs_->at(sur_id).traj.getddSigma(pt_time);
+
+//     // double tmptime = pt_time-traj_i_satrt_time;
+//     // int idx = surround_trajs_->at(sur_id).traj.locatePieceIdx(tmptime);
+//     // Eigen::Matrix<double, 6, 2> coef= surround_trajs_->at(sur_id).traj[idx].getCoeffMat().transpose();
+//     // double surs1,surs2,surs3,surs4,surs5;
+//     // Eigen::Matrix<double, 6, 1> surbeta0, surbeta1,surbeta2;
+//     // surs1 = tmptime ;
+//     // surs2 = surs1 * surs1;
+//     // surs3 = surs2 * surs1;
+//     // surs4 = surs2 * surs2;
+//     // surs5 = surs4 * surs1;
+//     // surbeta0 << 1.0, surs1, surs2, surs3, surs4, surs5;
+//     // surbeta1 << 0.0, 1.0, 2.0 * surs1, 3.0 * surs2, 4.0 * surs3, 5.0 * surs4;
+//     // surbeta2 << 0.0, 0.0, 2.0, 6.0 * surs1, 12.0 * surs2, 20.0 * surs3;
+//     // surround_p = coef.transpose() * surbeta0;
+//     // surround_v = coef.transpose() * surbeta1;
+//     // surround_a = coef.transpose() * surbeta2;
+
+//   }
+//   else
+//   {
+//     double exceed_time = pt_time - surround_trajs_->at(sur_id).duration;
+//     surround_a = surround_trajs_->at(sur_id).traj.getddSigma(surround_trajs_->at(sur_id).duration);
+//     surround_v = surround_trajs_->at(sur_id).traj.getdSigma(surround_trajs_->at(sur_id).duration) +
+//                   exceed_time * surround_a;
+//     surround_p = surround_trajs_->at(sur_id).traj.getPos(surround_trajs_->at(sur_id).duration) +
+//                   exceed_time * surround_trajs_->at(sur_id).traj.getdSigma(surround_trajs_->at(sur_id).duration) + 
+//                   0.5 * surround_a * exceed_time * exceed_time;
+//     //surround_a may be set as 0 problem?
+//     ROS_ERROR("ASDASDASDASDASDA");
+//   }
+
+//   temp_sur0 = surround_v.norm();
+//   if (temp_sur0 != 0.0)
+//   {
+//     temp_sur_reci0 = 1.0 / temp_sur0;
+//   }
+//   else
+//   {
+//     temp_sur_reci0 = 0.0;
+//     ROS_ERROR("2222222222222222222222222222222222222222222222222222222");
+//   }
   
 
-  // res_t += delta;
-
-  // c.row(0)[0] = c.row(0)[0]+delta;
-  //grad gradprevt
 
 
-  double s1,s2,s3,s4,s5;
-  Eigen::Matrix<double, 6, 1> beta0, beta1,beta2;
-  s1 = res_t ;
-  s2 = s1 * s1;
-  s3 = s2 * s1;
-  s4 = s2 * s2;
-  s5 = s4 * s1;
-  beta0 << 1.0, s1, s2, s3, s4, s5;
-  beta1 << 0.0, 1.0, 2.0 * s1, 3.0 * s2, 4.0 * s3, 5.0 * s4;
-  beta2 << 0.0, 0.0, 2.0, 6.0 * s1, 12.0 * s2, 20.0 * s3;
-  sigma = c.transpose() * beta0;
-  dsigma = c.transpose() * beta1;
-  ddsigma = c.transpose() * beta2;
+
+//   temp_sur1 = double(surround_v.transpose() * surround_p) * temp_sur_reci0;
+//   temp_sur2 = double(surround_v.transpose() * B_h * surround_p) * temp_sur_reci0;
+//   temp_sur3 = double(surround_a.transpose() * surround_v) * (temp_sur_reci0 * temp_sur_reci0);
+
+//   surround_R << surround_v(0), -surround_v(1),
+//       surround_v(1), surround_v(0);
+//   surround_R = surround_R * temp_sur_reci0;
+//   help_surround_R << surround_a(0),-surround_a(1),
+//                       surround_a(1),surround_a(0);
+//   help_surround_R = help_surround_R * temp_sur_reci0;
+
+//   //  ==========the help intermediate variables.
+
+//   // ===========the help intermediate variables.
+//   Eigen::Vector4d dtemp1;
+//   Eigen::VectorXd sdis; sdis.resize(8);
+//   for (unsigned int i = 0; i < 4; i++)
+//   {
+//     Eigen::Vector2d lz = lz_set_.at(i);
+//     lz(0) += singul_ * veh_param_.d_cr();
+
+//     temp_point = sigma + ego_R * lz;
+//     ego_signed_dists1(i) = double(surround_v.transpose() * temp_point) * temp_sur_reci0; // cr0 
+//     ego_signed_dists2(i) = double(-surround_v.transpose() * temp_point) * temp_sur_reci0; //cr1
+//     ego_signed_dists3(i) = double(surround_v.transpose() * B_h * temp_point) * temp_sur_reci0; //cr3
+//     ego_signed_dists4(i) = double(-surround_v.transpose() * B_h * temp_point) * temp_sur_reci0; //cr2
+//     ego_bound_points.col(i) = temp_point; // 2*1
+
+//     temp_point = surround_p + surround_R * lz;
+//     surround_signed_dists1(i) = double(dsigma.transpose() * temp_point) * temp0_reci; // cr0
+//     dtemp1[i] = surround_signed_dists1(i);
+//     surround_signed_dists2(i) = double(-dsigma.transpose() * temp_point) * temp0_reci; //cr1
+//     surround_signed_dists3(i) = double(dsigma.transpose() * B_h * temp_point) * temp0_reci; //cr3
+//     surround_signed_dists4(i) = double(-dsigma.transpose() * B_h * temp_point) * temp0_reci; //cr2
+//     surround_bound_points.col(i) = temp_point;
+//   }
+
+//   // d1_ego - d4_ego
+//   signed_dists(0) = log_sum_exp(-alpha, surround_signed_dists1, surround_exp_sum1) - temp1 - veh_param_.d_cr() - veh_param_.length() / 2.0;
+//   signed_dists(1) = log_sum_exp(-alpha, surround_signed_dists2, surround_exp_sum2) + temp1 + veh_param_.d_cr() - veh_param_.length() / 2.0;
+//   signed_dists(2) = log_sum_exp(-alpha, surround_signed_dists3, surround_exp_sum3) - temp2 - veh_param_.width() / 2.0;
+//   signed_dists(3) = log_sum_exp(-alpha, surround_signed_dists4, surround_exp_sum4) + temp2 - veh_param_.width() / 2.0;
+
+//   // d1_sur = d4_sur
+//   signed_dists(4) = log_sum_exp(-alpha, ego_signed_dists1, ego_exp_sum1) - temp_sur1 - veh_param_.d_cr() - veh_param_.length() / 2.0;
+//   signed_dists(5) = log_sum_exp(-alpha, ego_signed_dists2, ego_exp_sum2) + temp_sur1 + veh_param_.d_cr() - veh_param_.length() / 2.0;
+//   signed_dists(6) = log_sum_exp(-alpha, ego_signed_dists3, ego_exp_sum3) - temp_sur2 - veh_param_.width() / 2.0;
+//   signed_dists(7) = log_sum_exp(-alpha, ego_signed_dists4, ego_exp_sum4) + temp_sur2 - veh_param_.width() / 2.0;
+//   // ------------------------------- add cost
+//   for(int i = 0;i<8;i++)
+//     sdis(i) = signed_dists(i);
+  
+//   // std::cout<<"t: "<<t<<" put: "<<pt_time<<std::endl;
+//   // std::cout<<"sigma: "<<sigma.transpose()<<" dsigma: "<<dsigma.transpose()<<std::endl;
+//   // std::cout<<"surp: "<<surround_p.transpose()<<" surv: "<<surround_v.transpose()<<std::endl;
+//   // std::cout<<"yaw: "<<atan2(dsigma[1],dsigma[0])<<" pyaw: "<<atan2(surround_v[1],surround_v[0])<<std::endl;
+//   // std::cout<<"signedis: "<<signed_dists.transpose()<<std::endl;
+
+
+
+
+//   Eigen::Vector4d at;
+//   at << - temp_sur1 - veh_param_.d_cr() - veh_param_.length() / 2.0,
+//         + temp_sur1 + veh_param_.d_cr() - veh_param_.length() / 2.0,
+//         - temp_sur2 - veh_param_.width() / 2.0 ,+ temp_sur2 - veh_param_.width() / 2.0;
+
+
+//   double d_value1 = d_min -log_sum_exp(alpha, signed_dists, exp_sum);
+//   double pena1,penaD1;
+//   positiveSmoothedL1(d_value1,pena1,penaD1);
+//   double f1 = omg * step * wei_surround_ * pena1;
+//   //3,2
+
+//   double delta = 1.0e-9;
+  
+//   // t = 0.0;
+//   // res_t = 0.0;
+//   // // //i j 
+//   // for(int id1 = 0; id1 < i; id1++){
+//   //   t += jerkOpt_container[trajid].get_T1()(id1);
+//   // }
+//   // res_t = j * (jerkOpt_container[trajid].get_T1()(i)+delta) / K;
+//   // t += res_t;
+//   // step = (jerkOpt_container[trajid].get_T1()(i)+delta) / K;
+
+//   t+=delta;
+  
+
+//   // res_t += delta;
+
+//   // c.row(0)[0] = c.row(0)[0]+delta;
+//   //grad gradprevt
+
+
+//   double s1,s2,s3,s4,s5;
+//   Eigen::Matrix<double, 6, 1> beta0, beta1,beta2;
+//   s1 = res_t ;
+//   s2 = s1 * s1;
+//   s3 = s2 * s1;
+//   s4 = s2 * s2;
+//   s5 = s4 * s1;
+//   beta0 << 1.0, s1, s2, s3, s4, s5;
+//   beta1 << 0.0, 1.0, 2.0 * s1, 3.0 * s2, 4.0 * s3, 5.0 * s4;
+//   beta2 << 0.0, 0.0, 2.0, 6.0 * s1, 12.0 * s2, 20.0 * s3;
+//   sigma = c.transpose() * beta0;
+//   dsigma = c.transpose() * beta1;
+//   ddsigma = c.transpose() * beta2;
    
 
 
-  double last_pt_time = pt_time;
-  pt_time= offsettime + t;
+//   double last_pt_time = pt_time;
+//   pt_time= offsettime + t;
 
 
 
-  Eigen::Vector4d dtemp2;
-  Eigen::VectorXd deltasdis; deltasdis.resize(8);
-  z_h0 = 1.0/dsigma.norm();
-  ego_R << dsigma(0), -dsigma(1),
-            dsigma(1),  dsigma(0);
-  ego_R = ego_R * z_h0;
-  help_R << ddsigma(0), -ddsigma(1),
-            ddsigma(1),  ddsigma(0);
-  help_R = help_R * z_h0;
-  temp0 = dsigma.norm(); //  ||dsigma||_2
+//   Eigen::Vector4d dtemp2;
+//   Eigen::VectorXd deltasdis; deltasdis.resize(8);
+//   z_h0 = 1.0/dsigma.norm();
+//   ego_R << dsigma(0), -dsigma(1),
+//             dsigma(1),  dsigma(0);
+//   ego_R = ego_R * z_h0;
+//   help_R << ddsigma(0), -ddsigma(1),
+//             ddsigma(1),  ddsigma(0);
+//   help_R = help_R * z_h0;
+//   temp0 = dsigma.norm(); //  ||dsigma||_2
   
-  if (temp0 != 0.0){
-    temp0_reci = 1.0 / temp0;
-  }else{
-    temp0_reci = 0.0;
-    ROS_ERROR("1111111111111111111111111111111111111111111111111111");
-  }
-  temp1 = double(dsigma.transpose() * sigma) * temp0_reci; //(dsigma.transpose() * sigma) / temp0_reci; // dsigma^T * sigma /  ||dsigma||_2
-  temp2 = double(dsigma.transpose() * B_h * sigma) * temp0_reci;
-  temp3 = temp0_reci * temp0_reci; // ||dsigma||_2^2
-  temp4 = temp3 * temp0_reci; // ||dsigma||_2^3
-  temp5 = double(ddsigma.transpose() * dsigma) * temp3;
-  temp6 = -(temp0 + double(ddsigma.transpose() * sigma) * temp0_reci - temp5 * temp1);
-  temp7 = -(double(ddsigma.transpose() * B_h * sigma) * temp0_reci - temp5 * temp2);
-  temp_vec1 = -(sigma * temp0_reci - temp1 * temp3 * dsigma);
-  temp_vec2 = -(B_h * sigma * temp0_reci - temp2 * temp3 * dsigma);
+//   if (temp0 != 0.0){
+//     temp0_reci = 1.0 / temp0;
+//   }else{
+//     temp0_reci = 0.0;
+//     ROS_ERROR("1111111111111111111111111111111111111111111111111111");
+//   }
+//   temp1 = double(dsigma.transpose() * sigma) * temp0_reci; //(dsigma.transpose() * sigma) / temp0_reci; // dsigma^T * sigma /  ||dsigma||_2
+//   temp2 = double(dsigma.transpose() * B_h * sigma) * temp0_reci;
+//   temp3 = temp0_reci * temp0_reci; // ||dsigma||_2^2
+//   temp4 = temp3 * temp0_reci; // ||dsigma||_2^3
+//   temp5 = double(ddsigma.transpose() * dsigma) * temp3;
+//   temp6 = -(temp0 + double(ddsigma.transpose() * sigma) * temp0_reci - temp5 * temp1);
+//   temp7 = -(double(ddsigma.transpose() * B_h * sigma) * temp0_reci - temp5 * temp2);
+//   temp_vec1 = -(sigma * temp0_reci - temp1 * temp3 * dsigma);
+//   temp_vec2 = -(B_h * sigma * temp0_reci - temp2 * temp3 * dsigma);
 
 
-  Eigen::Vector2d oldpu,oldvu,oldau;
-  oldpu = surround_p; oldvu = surround_v; oldau = surround_a;
+//   Eigen::Vector2d oldpu,oldvu,oldau;
+//   oldpu = surround_p; oldvu = surround_v; oldau = surround_a;
 
 
-  if (pt_time < surround_trajs_->at(sur_id).duration)
-  {
-    surround_p = surround_trajs_->at(sur_id).traj.getPos(pt_time);
-    surround_v = surround_trajs_->at(sur_id).traj.getdSigma(pt_time);
-    surround_a = surround_trajs_->at(sur_id).traj.getddSigma(pt_time);
-    // surround_trajs_->at(sur_id).traj.locatePieceIdx(pt_time-traj_i_satrt_time);
-    // double tmptime = pt_time-traj_i_satrt_time;
-    // int idx = surround_trajs_->at(sur_id).traj.locatePieceIdx(tmptime);
-    // Eigen::Matrix<double, 6, 2> coef= surround_trajs_->at(sur_id).traj[idx].getCoeffMat().transpose();
-    // double surs1,surs2,surs3,surs4,surs5;
-    // Eigen::Matrix<double, 6, 1> surbeta0, surbeta1,surbeta2;
-    // surs1 = tmptime ;
-    // surs2 = surs1 * surs1;
-    // surs3 = surs2 * surs1;
-    // surs4 = surs2 * surs2;
-    // surs5 = surs4 * surs1;
-    // surbeta0 << 1.0, surs1, surs2, surs3, surs4, surs5;
-    // surbeta1 << 0.0, 1.0, 2.0 * surs1, 3.0 * surs2, 4.0 * surs3, 5.0 * surs4;
-    // surbeta2 << 0.0, 0.0, 2.0, 6.0 * surs1, 12.0 * surs2, 20.0 * surs3;
-    // surround_p = coef.transpose() * surbeta0;
-    // surround_v = coef.transpose() * surbeta1;
-    // surround_a = coef.transpose() * surbeta2;
+//   if (pt_time < surround_trajs_->at(sur_id).duration)
+//   {
+//     surround_p = surround_trajs_->at(sur_id).traj.getPos(pt_time);
+//     surround_v = surround_trajs_->at(sur_id).traj.getdSigma(pt_time);
+//     surround_a = surround_trajs_->at(sur_id).traj.getddSigma(pt_time);
+//     // surround_trajs_->at(sur_id).traj.locatePieceIdx(pt_time-traj_i_satrt_time);
+//     // double tmptime = pt_time-traj_i_satrt_time;
+//     // int idx = surround_trajs_->at(sur_id).traj.locatePieceIdx(tmptime);
+//     // Eigen::Matrix<double, 6, 2> coef= surround_trajs_->at(sur_id).traj[idx].getCoeffMat().transpose();
+//     // double surs1,surs2,surs3,surs4,surs5;
+//     // Eigen::Matrix<double, 6, 1> surbeta0, surbeta1,surbeta2;
+//     // surs1 = tmptime ;
+//     // surs2 = surs1 * surs1;
+//     // surs3 = surs2 * surs1;
+//     // surs4 = surs2 * surs2;
+//     // surs5 = surs4 * surs1;
+//     // surbeta0 << 1.0, surs1, surs2, surs3, surs4, surs5;
+//     // surbeta1 << 0.0, 1.0, 2.0 * surs1, 3.0 * surs2, 4.0 * surs3, 5.0 * surs4;
+//     // surbeta2 << 0.0, 0.0, 2.0, 6.0 * surs1, 12.0 * surs2, 20.0 * surs3;
+//     // surround_p = coef.transpose() * surbeta0;
+//     // surround_v = coef.transpose() * surbeta1;
+//     // surround_a = coef.transpose() * surbeta2;
 
-    // Eigen::Matrix<>->at(sur_id).traj[idx].getCoeffMat()
-  }
-  else
-  {
-    double exceed_time = pt_time - surround_trajs_->at(sur_id).duration;
-    surround_a = surround_trajs_->at(sur_id).traj.getddSigma(surround_trajs_->at(sur_id).duration);
-    surround_v = surround_trajs_->at(sur_id).traj.getdSigma(surround_trajs_->at(sur_id).duration) +
-                  exceed_time * surround_a;
-    surround_p = surround_trajs_->at(sur_id).traj.getPos(surround_trajs_->at(sur_id).duration) +
-                  exceed_time * surround_trajs_->at(sur_id).traj.getdSigma(surround_trajs_->at(sur_id).duration) + 
-                  0.5 * surround_a * exceed_time * exceed_time;
-    ROS_ERROR("33333333333333333333333333333333");
-    //surround_a may be set as 0 problem?
+//     // Eigen::Matrix<>->at(sur_id).traj[idx].getCoeffMat()
+//   }
+//   else
+//   {
+//     double exceed_time = pt_time - surround_trajs_->at(sur_id).duration;
+//     surround_a = surround_trajs_->at(sur_id).traj.getddSigma(surround_trajs_->at(sur_id).duration);
+//     surround_v = surround_trajs_->at(sur_id).traj.getdSigma(surround_trajs_->at(sur_id).duration) +
+//                   exceed_time * surround_a;
+//     surround_p = surround_trajs_->at(sur_id).traj.getPos(surround_trajs_->at(sur_id).duration) +
+//                   exceed_time * surround_trajs_->at(sur_id).traj.getdSigma(surround_trajs_->at(sur_id).duration) + 
+//                   0.5 * surround_a * exceed_time * exceed_time;
+//     ROS_ERROR("33333333333333333333333333333333");
+//     //surround_a may be set as 0 problem?
     
-  }
-  // std::cout<<"last: "<<last_pt_time<<" now pttime: "<<pt_time<<std::endl;
-  // std::cout<<"surp: "<<surround_p.transpose()<<" surv: "<<surround_v.transpose()<<" sura: "<<surround_a.transpose()<<std::endl;
-  // std::cout<<"surpu-oldpu: "<<(surround_p-oldpu).transpose()/delta<<" survu-oldvu: "<<(surround_v-oldvu).transpose()/delta<<std::endl;
+//   }
+//   // std::cout<<"last: "<<last_pt_time<<" now pttime: "<<pt_time<<std::endl;
+//   // std::cout<<"surp: "<<surround_p.transpose()<<" surv: "<<surround_v.transpose()<<" sura: "<<surround_a.transpose()<<std::endl;
+//   // std::cout<<"surpu-oldpu: "<<(surround_p-oldpu).transpose()/delta<<" survu-oldvu: "<<(surround_v-oldvu).transpose()/delta<<std::endl;
 
 
 
 
-  temp_sur0 = surround_v.norm();
-  if (temp_sur0 != 0.0)
-  {
-    temp_sur_reci0 = 1.0 / temp_sur0;
-  }
-  else
-  {
-    temp_sur_reci0 = 0.0;
-    ROS_ERROR("2222222222222222222222222222222222222222222222222222222");
-  }
+//   temp_sur0 = surround_v.norm();
+//   if (temp_sur0 != 0.0)
+//   {
+//     temp_sur_reci0 = 1.0 / temp_sur0;
+//   }
+//   else
+//   {
+//     temp_sur_reci0 = 0.0;
+//     ROS_ERROR("2222222222222222222222222222222222222222222222222222222");
+//   }
 
-  temp_sur1 = double(surround_v.transpose() * surround_p) * temp_sur_reci0;
-  temp_sur2 = double(surround_v.transpose() * B_h * surround_p) * temp_sur_reci0;
-  //double(dsigma.transpose() * B_h * sigma) * temp0_reci;
-  temp_sur3 = double(surround_a.transpose() * surround_v) * (temp_sur_reci0 * temp_sur_reci0);
+//   temp_sur1 = double(surround_v.transpose() * surround_p) * temp_sur_reci0;
+//   temp_sur2 = double(surround_v.transpose() * B_h * surround_p) * temp_sur_reci0;
+//   //double(dsigma.transpose() * B_h * sigma) * temp0_reci;
+//   temp_sur3 = double(surround_a.transpose() * surround_v) * (temp_sur_reci0 * temp_sur_reci0);
 
-  surround_R << surround_v(0), -surround_v(1),
-                surround_v(1), surround_v(0);
-  surround_R = surround_R * temp_sur_reci0;
-  help_surround_R << surround_a(0),-surround_a(1),
-                     surround_a(1),surround_a(0);
-  help_surround_R = help_surround_R * temp_sur_reci0;
+//   surround_R << surround_v(0), -surround_v(1),
+//                 surround_v(1), surround_v(0);
+//   surround_R = surround_R * temp_sur_reci0;
+//   help_surround_R << surround_a(0),-surround_a(1),
+//                      surround_a(1),surround_a(0);
+//   help_surround_R = help_surround_R * temp_sur_reci0;
 
-  //  ==========the help intermediate variables.
+//   //  ==========the help intermediate variables.
 
-  // ===========the help intermediate variables.
+//   // ===========the help intermediate variables.
 
-  for (unsigned int i = 0; i < 4; i++)
-  {
-    Eigen::Vector2d lz = lz_set_.at(i);
-    lz(0) += singul_ * veh_param_.d_cr();
+//   for (unsigned int i = 0; i < 4; i++)
+//   {
+//     Eigen::Vector2d lz = lz_set_.at(i);
+//     lz(0) += singul_ * veh_param_.d_cr();
 
-    temp_point = sigma + ego_R * lz;
-    ego_signed_dists1(i) = double(surround_v.transpose() * temp_point) * temp_sur_reci0; // cr0 
-    ego_signed_dists2(i) = double(-surround_v.transpose() * temp_point) * temp_sur_reci0; //cr1
-    ego_signed_dists3(i) = double(surround_v.transpose() * B_h * temp_point) * temp_sur_reci0; //cr3
-    ego_signed_dists4(i) = double(-surround_v.transpose() * B_h * temp_point) * temp_sur_reci0; //cr2
-    ego_bound_points.col(i) = temp_point; // 2*1
+//     temp_point = sigma + ego_R * lz;
+//     ego_signed_dists1(i) = double(surround_v.transpose() * temp_point) * temp_sur_reci0; // cr0 
+//     ego_signed_dists2(i) = double(-surround_v.transpose() * temp_point) * temp_sur_reci0; //cr1
+//     ego_signed_dists3(i) = double(surround_v.transpose() * B_h * temp_point) * temp_sur_reci0; //cr3
+//     ego_signed_dists4(i) = double(-surround_v.transpose() * B_h * temp_point) * temp_sur_reci0; //cr2
+//     ego_bound_points.col(i) = temp_point; // 2*1
 
-    temp_point = surround_p + surround_R * lz;
-    surround_signed_dists1(i) = double(dsigma.transpose() * temp_point) * temp0_reci; // cr0
-    dtemp2[i] = surround_signed_dists1(i);
-    surround_signed_dists2(i) = double(-dsigma.transpose() * temp_point) * temp0_reci; //cr1
-    surround_signed_dists3(i) = double(dsigma.transpose() * B_h * temp_point) * temp0_reci; //cr3
-    surround_signed_dists4(i) = double(-dsigma.transpose() * B_h * temp_point) * temp0_reci; //cr2
-    surround_bound_points.col(i) = temp_point;
-  }
+//     temp_point = surround_p + surround_R * lz;
+//     surround_signed_dists1(i) = double(dsigma.transpose() * temp_point) * temp0_reci; // cr0
+//     dtemp2[i] = surround_signed_dists1(i);
+//     surround_signed_dists2(i) = double(-dsigma.transpose() * temp_point) * temp0_reci; //cr1
+//     surround_signed_dists3(i) = double(dsigma.transpose() * B_h * temp_point) * temp0_reci; //cr3
+//     surround_signed_dists4(i) = double(-dsigma.transpose() * B_h * temp_point) * temp0_reci; //cr2
+//     surround_bound_points.col(i) = temp_point;
+//   }
 
-  // d1_ego - d4_ego
-  signed_dists(0) = log_sum_exp(-alpha, surround_signed_dists1, surround_exp_sum1) - temp1 - veh_param_.d_cr() - veh_param_.length() / 2.0;
-  signed_dists(1) = log_sum_exp(-alpha, surround_signed_dists2, surround_exp_sum2) + temp1 + veh_param_.d_cr() - veh_param_.length() / 2.0;
-  signed_dists(2) = log_sum_exp(-alpha, surround_signed_dists3, surround_exp_sum3) - temp2 - veh_param_.width() / 2.0;
-  signed_dists(3) = log_sum_exp(-alpha, surround_signed_dists4, surround_exp_sum4) + temp2 - veh_param_.width() / 2.0;
+//   // d1_ego - d4_ego
+//   signed_dists(0) = log_sum_exp(-alpha, surround_signed_dists1, surround_exp_sum1) - temp1 - veh_param_.d_cr() - veh_param_.length() / 2.0;
+//   signed_dists(1) = log_sum_exp(-alpha, surround_signed_dists2, surround_exp_sum2) + temp1 + veh_param_.d_cr() - veh_param_.length() / 2.0;
+//   signed_dists(2) = log_sum_exp(-alpha, surround_signed_dists3, surround_exp_sum3) - temp2 - veh_param_.width() / 2.0;
+//   signed_dists(3) = log_sum_exp(-alpha, surround_signed_dists4, surround_exp_sum4) + temp2 - veh_param_.width() / 2.0;
 
-  // d1_sur = d4_sur
-  //double(dsigma.transpose() * B_h * sigma) * temp0_reci;
-  signed_dists(4) = log_sum_exp(-alpha, ego_signed_dists1, ego_exp_sum1) - temp_sur1 - veh_param_.d_cr() - veh_param_.length() / 2.0;
-  signed_dists(5) = log_sum_exp(-alpha, ego_signed_dists2, ego_exp_sum2) + temp_sur1 + veh_param_.d_cr() - veh_param_.length() / 2.0;
-  signed_dists(6) = log_sum_exp(-alpha, ego_signed_dists3, ego_exp_sum3) - temp_sur2 - veh_param_.width() / 2.0;
-  signed_dists(7) = log_sum_exp(-alpha, ego_signed_dists4, ego_exp_sum4) + temp_sur2 - veh_param_.width() / 2.0;
-  // ------------------------------- add cost
-  Eigen::Vector4d at2;
-  at2 << - temp_sur1 - veh_param_.d_cr() - veh_param_.length() / 2.0,
-        + temp_sur1 + veh_param_.d_cr() - veh_param_.length() / 2.0,
-        - temp_sur2 - veh_param_.width() / 2.0 ,+ temp_sur2 - veh_param_.width() / 2.0;
-  for(int i =0 ;i<8; i++)
-    deltasdis(i) = signed_dists(i);
-  double d_value2 = d_min -log_sum_exp(alpha, signed_dists, exp_sum);
-  // for(int i =0 ;i<4;i++){
-  //   std::cout<<"approxgrad_sd_dsigma.c: "<<(dtemp2-dtemp1)[i]/delta<<std::endl;
-  // }
+//   // d1_sur = d4_sur
+//   //double(dsigma.transpose() * B_h * sigma) * temp0_reci;
+//   signed_dists(4) = log_sum_exp(-alpha, ego_signed_dists1, ego_exp_sum1) - temp_sur1 - veh_param_.d_cr() - veh_param_.length() / 2.0;
+//   signed_dists(5) = log_sum_exp(-alpha, ego_signed_dists2, ego_exp_sum2) + temp_sur1 + veh_param_.d_cr() - veh_param_.length() / 2.0;
+//   signed_dists(6) = log_sum_exp(-alpha, ego_signed_dists3, ego_exp_sum3) - temp_sur2 - veh_param_.width() / 2.0;
+//   signed_dists(7) = log_sum_exp(-alpha, ego_signed_dists4, ego_exp_sum4) + temp_sur2 - veh_param_.width() / 2.0;
+//   // ------------------------------- add cost
+//   Eigen::Vector4d at2;
+//   at2 << - temp_sur1 - veh_param_.d_cr() - veh_param_.length() / 2.0,
+//         + temp_sur1 + veh_param_.d_cr() - veh_param_.length() / 2.0,
+//         - temp_sur2 - veh_param_.width() / 2.0 ,+ temp_sur2 - veh_param_.width() / 2.0;
+//   for(int i =0 ;i<8; i++)
+//     deltasdis(i) = signed_dists(i);
+//   double d_value2 = d_min -log_sum_exp(alpha, signed_dists, exp_sum);
+//   // for(int i =0 ;i<4;i++){
+//   //   std::cout<<"approxgrad_sd_dsigma.c: "<<(dtemp2-dtemp1)[i]/delta<<std::endl;
+//   // }
 
-  // std::cout<<"approx surdis: "<<(deltasdis-sdis).transpose()/delta<<std::endl;
+//   // std::cout<<"approx surdis: "<<(deltasdis-sdis).transpose()/delta<<std::endl;
 
-  //std::cout<<"dsigma.col(0): "<<(temp_point * temp0_reci - double(dsigma.transpose() * temp_point) * temp4 * dsigma)<<std::endl;
-  double pena2,penaD2;
-  positiveSmoothedL1(d_value2,pena2,penaD2);
-  double f2 = omg * step * wei_surround_ * pena2;
+//   //std::cout<<"dsigma.col(0): "<<(temp_point * temp0_reci - double(dsigma.transpose() * temp_point) * temp4 * dsigma)<<std::endl;
+//   double pena2,penaD2;
+//   positiveSmoothedL1(d_value2,pena2,penaD2);
+//   double f2 = omg * step * wei_surround_ * pena2;
   
-  // std::cout<<"L1norm approx grad: "<<(f2-f1) / delta<<std::endl;
-  // std::cout<<"new costp2: "<<d_value2<<std::endl;
-  // return (f2-f1) / delta;
-  // std::cout<<"approx grad: "<<(d_value2-d_value1)/delta<<std::endl;
-  std::cout<<"L1norm approx grad: "<<(f2-f1) / delta<<std::endl;
-  return (d_value2-d_value1) / delta;
+//   // std::cout<<"L1norm approx grad: "<<(f2-f1) / delta<<std::endl;
+//   // std::cout<<"new costp2: "<<d_value2<<std::endl;
+//   // return (f2-f1) / delta;
+//   // std::cout<<"approx grad: "<<(d_value2-d_value1)/delta<<std::endl;
+//   std::cout<<"L1norm approx grad: "<<(f2-f1) / delta<<std::endl;
+//   return (d_value2-d_value1) / delta;
 
 
 
 
 
 
-}
+// }
   // develop with signed distance
   // for current simulation, they add only vehicles with the same size.
   // in the future, more size can be added
@@ -1410,7 +1410,7 @@ double PolyTrajOptimizer::debugGradCheck(const int i_dp, // index of constraint 
         temp_sur_reci0 = 0.0;
         ROS_ERROR("temp_sur_reci0 = 0.0!");
       }
-      Eigen::Matrix2d surround_R = surround_trajs_->at(sur_id).traj.getR(pt_time);
+      Eigen::Matrix2d surround_R = surround_trajs_->at(sur_id).traj.getR(pt_time); //rotation matrix
       Eigen::VectorXd surround2ego_sum_exp_vec(number_of_hyperplanes_of_ego_car);
       Eigen::VectorXd d_U(number_of_hyperplanes_of_ego_car);
       std::vector<Eigen::Vector2d> ego_normal_vectors_vec;  ego_normal_vectors_vec.clear(); // This vector is used to store the normal vectors of each hyperplane of the ego car
@@ -1770,7 +1770,11 @@ double PolyTrajOptimizer::debugGradCheck(const int i_dp, // index of constraint 
     le_2 << veh_param_.d_cr() + veh_param_.length() / 2.0, -veh_param_.width() / 2.0;
     le_3 << veh_param_.d_cr() - veh_param_.length() / 2.0, -veh_param_.width() / 2.0;
     le_4 << veh_param_.d_cr() - veh_param_.length() / 2.0, veh_param_.width() / 2.0;
-    lo_1 = le_1; lo_2 = le_2; lo_3 = le_3; lo_4 = le_4;
+    // lo_1 = le_1; lo_2 = le_2; lo_3 = le_3; lo_4 = le_4;
+    lo_1 << 0.1,   veh_param_.width() / 2.0;
+    lo_2 << 0.1,  -veh_param_.width() / 2.0;
+    lo_3 << -0.1, -veh_param_.width() / 2.0;
+    lo_4 << -0.1,  veh_param_.width() / 2.0;
 
     // attention here! These vectors store one more of the vertexs! The vertexs are stored Clockwise！
     vec_le_.push_back(le_1); vec_le_.push_back(le_2); vec_le_.push_back(le_3); vec_le_.push_back(le_4); 
@@ -1920,163 +1924,163 @@ double PolyTrajOptimizer::debugGradCheck(const int i_dp, // index of constraint 
   void PolyTrajOptimizer::setSurroundTrajs(plan_utils::SurroundTrajData *surround_trajs_ptr) { surround_trajs_ = surround_trajs_ptr; 
   }
   
-  bool PolyTrajOptimizer::dynamicObsCosCheck(double t_now, const Eigen::MatrixXd iniStates, int trajid, int sur_id){
-    Eigen::Matrix2d ego_R, help_R;                                          
-    int singul_ = singul_container[trajid];
-    int sur_singul_ = 1;
-    if (surround_trajs_==NULL||surround_trajs_->size() < 1) return false;
-    double alpha = 100.0, d_min = surround_clearance_ + std::log(8.0) / alpha; // may have problems hzc
-    double pt_time ;
-    double traj_i_satrt_time = surround_trajs_->at(sur_id).start_time;
+  // bool PolyTrajOptimizer::dynamicObsCosCheck(double t_now, const Eigen::MatrixXd iniStates, int trajid, int sur_id){
+  //   Eigen::Matrix2d ego_R, help_R;                                          
+  //   int singul_ = singul_container[trajid];
+  //   int sur_singul_ = 1;
+  //   if (surround_trajs_==NULL||surround_trajs_->size() < 1) return false;
+  //   double alpha = 100.0, d_min = surround_clearance_ + std::log(8.0) / alpha; // may have problems hzc
+  //   double pt_time ;
+  //   double traj_i_satrt_time = surround_trajs_->at(sur_id).start_time;
     
-    double dG_dsd, temp0, temp0_reci, temp1, temp2, temp3, temp4, temp5, temp6, temp7;
-    double temp_sur0, temp_sur_reci0, temp_sur1, temp_sur2, temp_sur3;
-    Eigen::Vector2d temp_vec1, temp_vec2, temp_vec3, temp_vec4;
-    Eigen::Matrix<double, 2, 8> grad_sd_sigma, grad_sd_dsigma;
-    Eigen::Matrix<double, 2, 4> ego_bound_points, surround_bound_points;
-    Eigen::VectorXd grad_sd_rt(8), grad_sd_prevt(8);
-    Eigen::VectorXd signed_dists(8),   ego_signed_dists1(4), ego_signed_dists2(4),ego_signed_dists3(4), ego_signed_dists4(4),
-          surround_signed_dists1(4), surround_signed_dists2(4),surround_signed_dists3(4), surround_signed_dists4(4);
-    Eigen::Vector2d surround_p, surround_v, surround_a;
-    Eigen::Matrix2d surround_R,help_surround_R;
-    Eigen::Vector2d temp_point;
-    double surround_exp_sum1, surround_exp_sum2,surround_exp_sum3,surround_exp_sum4,
-            ego_exp_sum1, ego_exp_sum2,ego_exp_sum3, ego_exp_sum4, exp_sum;
-    double z_h0;
+  //   double dG_dsd, temp0, temp0_reci, temp1, temp2, temp3, temp4, temp5, temp6, temp7;
+  //   double temp_sur0, temp_sur_reci0, temp_sur1, temp_sur2, temp_sur3;
+  //   Eigen::Vector2d temp_vec1, temp_vec2, temp_vec3, temp_vec4;
+  //   Eigen::Matrix<double, 2, 8> grad_sd_sigma, grad_sd_dsigma;
+  //   Eigen::Matrix<double, 2, 4> ego_bound_points, surround_bound_points;
+  //   Eigen::VectorXd grad_sd_rt(8), grad_sd_prevt(8);
+  //   Eigen::VectorXd signed_dists(8),   ego_signed_dists1(4), ego_signed_dists2(4),ego_signed_dists3(4), ego_signed_dists4(4),
+  //         surround_signed_dists1(4), surround_signed_dists2(4),surround_signed_dists3(4), surround_signed_dists4(4);
+  //   Eigen::Vector2d surround_p, surround_v, surround_a;
+  //   Eigen::Matrix2d surround_R,help_surround_R;
+  //   Eigen::Vector2d temp_point;
+  //   double surround_exp_sum1, surround_exp_sum2,surround_exp_sum3,surround_exp_sum4,
+  //           ego_exp_sum1, ego_exp_sum2,ego_exp_sum3, ego_exp_sum4, exp_sum;
+  //   double z_h0;
 
-    double offsettime =  t_now - traj_i_satrt_time;
+  //   double offsettime =  t_now - traj_i_satrt_time;
 
-    pt_time= offsettime;
-    Eigen::Vector2d sigma,dsigma,ddsigma;
-    sigma = iniStates.col(0);
-    dsigma = iniStates.col(1);
-    ddsigma = iniStates.col(2);
+  //   pt_time= offsettime;
+  //   Eigen::Vector2d sigma,dsigma,ddsigma;
+  //   sigma = iniStates.col(0);
+  //   dsigma = iniStates.col(1);
+  //   ddsigma = iniStates.col(2);
 
 
 
-    z_h0 = 1.0/dsigma.norm();
-    ego_R << dsigma(0), -dsigma(1),
-              dsigma(1),  dsigma(0);
-    ego_R = ego_R * z_h0;
-    help_R << ddsigma(0), -ddsigma(1),
-              ddsigma(1),  ddsigma(0);
-    help_R = help_R * z_h0;
+  //   z_h0 = 1.0/dsigma.norm();
+  //   ego_R << dsigma(0), -dsigma(1),
+  //             dsigma(1),  dsigma(0);
+  //   ego_R = ego_R * z_h0;
+  //   help_R << ddsigma(0), -ddsigma(1),
+  //             ddsigma(1),  ddsigma(0);
+  //   help_R = help_R * z_h0;
 
-    temp0 = dsigma.norm(); //  ||dsigma||_2
+  //   temp0 = dsigma.norm(); //  ||dsigma||_2
     
-    if (temp0 != 0.0){
-      temp0_reci = 1.0 / temp0;
-    }else{
-      temp0_reci = 0.0;
-      ROS_ERROR("1111111111111111111111111111111111111111111111111111");
-    }
-    temp1 = double(dsigma.transpose() * sigma) * temp0_reci; //(dsigma.transpose() * sigma) / temp0_reci; // dsigma^T * sigma /  ||dsigma||_2
-    temp2 = double(dsigma.transpose() * B_h * sigma) * temp0_reci;
-    temp3 = temp0_reci * temp0_reci; // ||dsigma||_2^2
-    temp4 = temp3 * temp0_reci; // ||dsigma||_2^3
-    temp5 = double(ddsigma.transpose() * dsigma) * temp3;
-    temp6 = -(temp0 + double(ddsigma.transpose() * sigma) * temp0_reci - temp5 * temp1);
-    temp7 = -(double(ddsigma.transpose() * B_h * sigma) * temp0_reci - temp5 * temp2);
-    temp_vec1 = -(sigma * temp0_reci - temp1 * temp3 * dsigma);
-    temp_vec2 = -(B_h * sigma * temp0_reci - temp2 * temp3 * dsigma);
+  //   if (temp0 != 0.0){
+  //     temp0_reci = 1.0 / temp0;
+  //   }else{
+  //     temp0_reci = 0.0;
+  //     ROS_ERROR("1111111111111111111111111111111111111111111111111111");
+  //   }
+  //   temp1 = double(dsigma.transpose() * sigma) * temp0_reci; //(dsigma.transpose() * sigma) / temp0_reci; // dsigma^T * sigma /  ||dsigma||_2
+  //   temp2 = double(dsigma.transpose() * B_h * sigma) * temp0_reci;
+  //   temp3 = temp0_reci * temp0_reci; // ||dsigma||_2^2
+  //   temp4 = temp3 * temp0_reci; // ||dsigma||_2^3
+  //   temp5 = double(ddsigma.transpose() * dsigma) * temp3;
+  //   temp6 = -(temp0 + double(ddsigma.transpose() * sigma) * temp0_reci - temp5 * temp1);
+  //   temp7 = -(double(ddsigma.transpose() * B_h * sigma) * temp0_reci - temp5 * temp2);
+  //   temp_vec1 = -(sigma * temp0_reci - temp1 * temp3 * dsigma);
+  //   temp_vec2 = -(B_h * sigma * temp0_reci - temp2 * temp3 * dsigma);
 
 
-    if (pt_time < surround_trajs_->at(sur_id).duration)
-    {
-      surround_p = surround_trajs_->at(sur_id).traj.getPos(pt_time );
-      surround_v = surround_trajs_->at(sur_id).traj.getdSigma(pt_time );
-      surround_a = surround_trajs_->at(sur_id).traj.getddSigma(pt_time);
+  //   if (pt_time < surround_trajs_->at(sur_id).duration)
+  //   {
+  //     surround_p = surround_trajs_->at(sur_id).traj.getPos(pt_time );
+  //     surround_v = surround_trajs_->at(sur_id).traj.getdSigma(pt_time );
+  //     surround_a = surround_trajs_->at(sur_id).traj.getddSigma(pt_time);
 
-    }
-    else
-    {
-      double exceed_time = pt_time - surround_trajs_->at(sur_id).duration;
-      surround_a = surround_trajs_->at(sur_id).traj.getddSigma(surround_trajs_->at(sur_id).duration);
-      surround_v = surround_trajs_->at(sur_id).traj.getdSigma(surround_trajs_->at(sur_id).duration) +
-                    exceed_time * surround_a;
-      surround_p = surround_trajs_->at(sur_id).traj.getPos(surround_trajs_->at(sur_id).duration) +
-                    exceed_time * surround_trajs_->at(sur_id).traj.getdSigma(surround_trajs_->at(sur_id).duration) + 
-                    0.5 * surround_a * exceed_time * exceed_time;
-      //surround_a may be set as 0 problem?
-      ROS_ERROR("ASDASDASDASDASDA");
-    }
+  //   }
+  //   else
+  //   {
+  //     double exceed_time = pt_time - surround_trajs_->at(sur_id).duration;
+  //     surround_a = surround_trajs_->at(sur_id).traj.getddSigma(surround_trajs_->at(sur_id).duration);
+  //     surround_v = surround_trajs_->at(sur_id).traj.getdSigma(surround_trajs_->at(sur_id).duration) +
+  //                   exceed_time * surround_a;
+  //     surround_p = surround_trajs_->at(sur_id).traj.getPos(surround_trajs_->at(sur_id).duration) +
+  //                   exceed_time * surround_trajs_->at(sur_id).traj.getdSigma(surround_trajs_->at(sur_id).duration) + 
+  //                   0.5 * surround_a * exceed_time * exceed_time;
+  //     //surround_a may be set as 0 problem?
+  //     ROS_ERROR("ASDASDASDASDASDA");
+  //   }
 
-    temp_sur0 = surround_v.norm();
-    if (temp_sur0 != 0.0)
-    {
-      temp_sur_reci0 = 1.0 / temp_sur0;
-    }
-    else
-    {
-      temp_sur_reci0 = 0.0;
-      ROS_ERROR("2222222222222222222222222222222222222222222222222222222");
-    }
+  //   temp_sur0 = surround_v.norm();
+  //   if (temp_sur0 != 0.0)
+  //   {
+  //     temp_sur_reci0 = 1.0 / temp_sur0;
+  //   }
+  //   else
+  //   {
+  //     temp_sur_reci0 = 0.0;
+  //     ROS_ERROR("2222222222222222222222222222222222222222222222222222222");
+  //   }
 
-    temp_sur1 = double(surround_v.transpose() * surround_p) * temp_sur_reci0;
-    temp_sur2 = double(surround_v.transpose() * B_h * surround_p) * temp_sur_reci0;
-    temp_sur3 = double(surround_a.transpose() * surround_v) * (temp_sur_reci0 * temp_sur_reci0);
+  //   temp_sur1 = double(surround_v.transpose() * surround_p) * temp_sur_reci0;
+  //   temp_sur2 = double(surround_v.transpose() * B_h * surround_p) * temp_sur_reci0;
+  //   temp_sur3 = double(surround_a.transpose() * surround_v) * (temp_sur_reci0 * temp_sur_reci0);
 
-    surround_R << surround_v(0), -surround_v(1),
-        surround_v(1), surround_v(0);
-    surround_R = surround_R * temp_sur_reci0;
-    help_surround_R << surround_a(0),-surround_a(1),
-                        surround_a(1),surround_a(0);
-    help_surround_R = help_surround_R * temp_sur_reci0;
+  //   surround_R << surround_v(0), -surround_v(1),
+  //       surround_v(1), surround_v(0);
+  //   surround_R = surround_R * temp_sur_reci0;
+  //   help_surround_R << surround_a(0),-surround_a(1),
+  //                       surround_a(1),surround_a(0);
+  //   help_surround_R = help_surround_R * temp_sur_reci0;
 
-    //  ==========the help intermediate variables.
+  //   //  ==========the help intermediate variables.
 
-    // ===========the help intermediate variables.
-    Eigen::Vector4d dtemp1;
-    Eigen::VectorXd sdis; sdis.resize(8);
-    for (unsigned int i = 0; i < 4; i++)
-    {
-      Eigen::Vector2d lz = lz_set_.at(i);
-      lz(0) += singul_ * veh_param_.d_cr();
+  //   // ===========the help intermediate variables.
+  //   Eigen::Vector4d dtemp1;
+  //   Eigen::VectorXd sdis; sdis.resize(8);
+  //   for (unsigned int i = 0; i < 4; i++)
+  //   {
+  //     Eigen::Vector2d lz = lz_set_.at(i);
+  //     lz(0) += singul_ * veh_param_.d_cr();
 
-      temp_point = sigma + ego_R * lz;
-      ego_signed_dists1(i) = double(surround_v.transpose() * temp_point) * temp_sur_reci0; // cr0 
-      ego_signed_dists2(i) = double(-surround_v.transpose() * temp_point) * temp_sur_reci0; //cr1
-      ego_signed_dists3(i) = double(surround_v.transpose() * B_h * temp_point) * temp_sur_reci0; //cr3
-      ego_signed_dists4(i) = double(-surround_v.transpose() * B_h * temp_point) * temp_sur_reci0; //cr2
-      ego_bound_points.col(i) = temp_point; // 2*1
+  //     temp_point = sigma + ego_R * lz;
+  //     ego_signed_dists1(i) = double(surround_v.transpose() * temp_point) * temp_sur_reci0; // cr0 
+  //     ego_signed_dists2(i) = double(-surround_v.transpose() * temp_point) * temp_sur_reci0; //cr1
+  //     ego_signed_dists3(i) = double(surround_v.transpose() * B_h * temp_point) * temp_sur_reci0; //cr3
+  //     ego_signed_dists4(i) = double(-surround_v.transpose() * B_h * temp_point) * temp_sur_reci0; //cr2
+  //     ego_bound_points.col(i) = temp_point; // 2*1
 
-      Eigen::Vector2d surlz = lz_set_.at(i);
-      surlz(0) += sur_singul_ * veh_param_.d_cr();
+  //     Eigen::Vector2d surlz = lz_set_.at(i);
+  //     surlz(0) += sur_singul_ * veh_param_.d_cr();
 
-      temp_point = surround_p + surround_R * surlz;
-      surround_signed_dists1(i) = double(dsigma.transpose() * temp_point) * temp0_reci; // cr0
-      dtemp1[i] = surround_signed_dists1(i);
-      surround_signed_dists2(i) = double(-dsigma.transpose() * temp_point) * temp0_reci; //cr1
-      surround_signed_dists3(i) = double(dsigma.transpose() * B_h * temp_point) * temp0_reci; //cr3
-      surround_signed_dists4(i) = double(-dsigma.transpose() * B_h * temp_point) * temp0_reci; //cr2
-      surround_bound_points.col(i) = temp_point;
-    }
+  //     temp_point = surround_p + surround_R * surlz;
+  //     surround_signed_dists1(i) = double(dsigma.transpose() * temp_point) * temp0_reci; // cr0
+  //     dtemp1[i] = surround_signed_dists1(i);
+  //     surround_signed_dists2(i) = double(-dsigma.transpose() * temp_point) * temp0_reci; //cr1
+  //     surround_signed_dists3(i) = double(dsigma.transpose() * B_h * temp_point) * temp0_reci; //cr3
+  //     surround_signed_dists4(i) = double(-dsigma.transpose() * B_h * temp_point) * temp0_reci; //cr2
+  //     surround_bound_points.col(i) = temp_point;
+  //   }
 
-    // d1_ego - d4_ego
-    signed_dists(0) = log_sum_exp(-alpha, surround_signed_dists1, surround_exp_sum1) - temp1 - veh_param_.d_cr() - veh_param_.length() / 2.0;
-    signed_dists(1) = log_sum_exp(-alpha, surround_signed_dists2, surround_exp_sum2) + temp1 + veh_param_.d_cr() - veh_param_.length() / 2.0;
-    signed_dists(2) = log_sum_exp(-alpha, surround_signed_dists3, surround_exp_sum3) - temp2 - veh_param_.width() / 2.0;
-    signed_dists(3) = log_sum_exp(-alpha, surround_signed_dists4, surround_exp_sum4) + temp2 - veh_param_.width() / 2.0;
+  //   // d1_ego - d4_ego
+  //   signed_dists(0) = log_sum_exp(-alpha, surround_signed_dists1, surround_exp_sum1) - temp1 - veh_param_.d_cr() - veh_param_.length() / 2.0;
+  //   signed_dists(1) = log_sum_exp(-alpha, surround_signed_dists2, surround_exp_sum2) + temp1 + veh_param_.d_cr() - veh_param_.length() / 2.0;
+  //   signed_dists(2) = log_sum_exp(-alpha, surround_signed_dists3, surround_exp_sum3) - temp2 - veh_param_.width() / 2.0;
+  //   signed_dists(3) = log_sum_exp(-alpha, surround_signed_dists4, surround_exp_sum4) + temp2 - veh_param_.width() / 2.0;
 
-    // d1_sur = d4_sur
-    signed_dists(4) = log_sum_exp(-alpha, ego_signed_dists1, ego_exp_sum1) - temp_sur1 - veh_param_.d_cr() - veh_param_.length() / 2.0;
-    signed_dists(5) = log_sum_exp(-alpha, ego_signed_dists2, ego_exp_sum2) + temp_sur1 + veh_param_.d_cr() - veh_param_.length() / 2.0;
-    signed_dists(6) = log_sum_exp(-alpha, ego_signed_dists3, ego_exp_sum3) - temp_sur2 - veh_param_.width() / 2.0;
-    signed_dists(7) = log_sum_exp(-alpha, ego_signed_dists4, ego_exp_sum4) + temp_sur2 - veh_param_.width() / 2.0;
-    // ------------------------------- add cost
-    for(int i = 0;i<8;i++)
-      sdis(i) = signed_dists(i);
+  //   // d1_sur = d4_sur
+  //   signed_dists(4) = log_sum_exp(-alpha, ego_signed_dists1, ego_exp_sum1) - temp_sur1 - veh_param_.d_cr() - veh_param_.length() / 2.0;
+  //   signed_dists(5) = log_sum_exp(-alpha, ego_signed_dists2, ego_exp_sum2) + temp_sur1 + veh_param_.d_cr() - veh_param_.length() / 2.0;
+  //   signed_dists(6) = log_sum_exp(-alpha, ego_signed_dists3, ego_exp_sum3) - temp_sur2 - veh_param_.width() / 2.0;
+  //   signed_dists(7) = log_sum_exp(-alpha, ego_signed_dists4, ego_exp_sum4) + temp_sur2 - veh_param_.width() / 2.0;
+  //   // ------------------------------- add cost
+  //   for(int i = 0;i<8;i++)
+  //     sdis(i) = signed_dists(i);
     
 
 
-    double d_value1 = d_min -log_sum_exp(alpha, signed_dists, exp_sum);
-    if(d_value1>0){
-      return true;
-    }
-    else{
-      return false;
-    }
-  }
+  //   double d_value1 = d_min -log_sum_exp(alpha, signed_dists, exp_sum);
+  //   if(d_value1>0){
+  //     return true;
+  //   }
+  //   else{
+  //     return false;
+  //   }
+  // }
 
   void PolyTrajOptimizer::setDroneId(const int drone_id) { drone_id_ = drone_id; }
 

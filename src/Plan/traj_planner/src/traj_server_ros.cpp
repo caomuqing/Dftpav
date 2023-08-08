@@ -184,15 +184,61 @@ namespace plan_utils
           
           p_traj_vis_->displayPolyTraj(executing_traj_);
           Display();
-    // ros::Duration(100.0).sleep();
-
+        // ros::Duration(100.0).sleep();
+          
+          if (CheckReplan()) //check if the new plan works, if not, delete it again
+          {
+            m.lock();
+            if (executing_traj_!=nullptr) executing_traj_.release();
+            m.unlock();            
+          }
           return;
         }
-        else
+        else // no feasible replan found
         {
+          // m.lock();
+          // if (executing_traj_!=nullptr) executing_traj_.release();
+          // m.unlock();
           m.lock();
-          if (executing_traj_!=nullptr) executing_traj_.release();
+          if (executing_traj_ == nullptr || executing_traj_->size() - 1 < exe_traj_index_) 
+          {
+            m.unlock();
+            return;
+          }
+          common::State state;
+          executing_traj_->at(exe_traj_index_).traj.GetState(current_time-executing_traj_->at(exe_traj_index_).start_time, &state);
+          double decelerate = 0.5;
+          double duration = state.velocity/decelerate;
+          double theta = state.angle;
+          Eigen::Vector2d vel(state.velocity * cos(theta), state.velocity * sin(theta));
+          Eigen::Vector2d acc(-decelerate * cos(theta)/2.0, -decelerate * sin(theta)/2.0);
+          Eigen::Matrix<double, 2, 6> posmatrix;
+          posmatrix.setZero();
+          posmatrix.col(5) = state.vec_position;
+          posmatrix.col(4) = vel;
+          posmatrix.col(3) = acc;
+
+          // plan_utils::Piece stoptraj(1.0, posmatrix, 1.0);
+          
+          std::vector<double> durs;
+          std::vector<CoefficientMat> cMats1;
+          cMats1.push_back(posmatrix);
+          durs.push_back(duration);
+          plan_utils::Trajectory _traj(durs, cMats1, 1);
+          plan_utils::TrajContainer trajcon;
+          trajcon.addSingulTraj(_traj, current_time);
+
+          next_traj_ = std::unique_ptr<plan_utils::SingulTrajData>(new plan_utils::SingulTrajData(trajcon.singul_traj));
+
+          executing_traj_ = std::move(next_traj_);
+          next_traj_.release();
+          fsm_num = 0;
+          final_traj_index_ = executing_traj_->size() - 1;
+          exe_traj_index_ = 0; 
           m.unlock();
+
+          p_traj_vis_->displayPolyTraj(executing_traj_);
+          Display();
         }
       }
 
