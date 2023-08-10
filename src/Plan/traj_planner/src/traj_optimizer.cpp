@@ -1771,10 +1771,10 @@ namespace plan_manage
     le_3 << veh_param_.d_cr() - veh_param_.length() / 2.0, -veh_param_.width() / 2.0;
     le_4 << veh_param_.d_cr() - veh_param_.length() / 2.0, veh_param_.width() / 2.0;
     // lo_1 = le_1; lo_2 = le_2; lo_3 = le_3; lo_4 = le_4;
-    lo_1 << 0.1,   veh_param_.width() / 2.0;
-    lo_2 << 0.1,  -veh_param_.width() / 2.0;
-    lo_3 << -0.1, -veh_param_.width() / 2.0;
-    lo_4 << -0.1,  veh_param_.width() / 2.0;
+    lo_1 <<  0.4,   0.4;
+    lo_2 <<  0.4,  -0.4;
+    lo_3 << -0.4,  -0.4;
+    lo_4 << -0.4,   0.4;
 
     // attention here! These vectors store one more of the vertexs! The vertexs are stored Clockwise！
     vec_le_.push_back(le_1); vec_le_.push_back(le_2); vec_le_.push_back(le_3); vec_le_.push_back(le_4); 

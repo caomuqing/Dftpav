@@ -83,6 +83,7 @@ namespace plan_utils
   private:
 
     void PlanCycleCallback();
+    void addStopTraj();
     
     void PublishData();
 

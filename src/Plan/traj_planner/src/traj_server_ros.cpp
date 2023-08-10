@@ -130,6 +130,45 @@ namespace plan_utils
     }
   }
 
+  void TrajPlannerServer::addStopTraj() {
+    double current_time = ros::Time::now().toSec();
+    m.lock();
+    if (executing_traj_ == nullptr || executing_traj_->size() - 1 < exe_traj_index_) 
+    {
+      m.unlock();
+      return;
+    }
+    common::State state;
+    executing_traj_->at(exe_traj_index_).traj.GetState(current_time-executing_traj_->at(exe_traj_index_).start_time, &state);
+    double decelerate = 0.5;
+    double duration = state.velocity/decelerate;
+    double theta = state.angle;
+    Eigen::Vector2d vel(state.velocity * cos(theta), state.velocity * sin(theta));
+    Eigen::Vector2d acc(-decelerate * cos(theta)/2.0, -decelerate * sin(theta)/2.0);
+    Eigen::Matrix<double, 2, 6> posmatrix;
+    posmatrix.setZero();
+    posmatrix.col(5) = state.vec_position;
+    posmatrix.col(4) = vel;
+    posmatrix.col(3) = acc;
+
+    // plan_utils::Piece stoptraj(1.0, posmatrix, 1.0);
+    
+    std::vector<double> durs;
+    std::vector<CoefficientMat> cMats1;
+    cMats1.push_back(posmatrix);
+    durs.push_back(duration);
+    plan_utils::Trajectory _traj(durs, cMats1, 1);
+    plan_utils::TrajContainer trajcon;
+    trajcon.addSingulTraj(_traj, current_time);
+
+    next_traj_ = std::unique_ptr<plan_utils::SingulTrajData>(new plan_utils::SingulTrajData(trajcon.singul_traj));
+
+    executing_traj_ = std::move(next_traj_);
+    next_traj_.release();
+    final_traj_index_ = executing_traj_->size() - 1;
+    exe_traj_index_ = 0; 
+    m.unlock();
+  }
 
   void TrajPlannerServer::PlanCycleCallback() {
     if (!is_replan_on_) {
@@ -182,15 +221,17 @@ namespace plan_utils
           exe_traj_index_ = 0; 
           m.unlock();
           
-          p_traj_vis_->displayPolyTraj(executing_traj_);
-          Display();
         // ros::Duration(100.0).sleep();
           
           if (CheckReplan()) //check if the new plan works, if not, delete it again
           {
-            m.lock();
-            if (executing_traj_!=nullptr) executing_traj_.release();
-            m.unlock();            
+            addStopTraj();
+            std::cout<<"check replan for new plan returns true!"<<std::endl;
+          }
+          else
+          {
+            p_traj_vis_->displayPolyTraj(executing_traj_);
+            Display();
           }
           return;
         }
@@ -199,44 +240,12 @@ namespace plan_utils
           // m.lock();
           // if (executing_traj_!=nullptr) executing_traj_.release();
           // m.unlock();
-          m.lock();
+
+          addStopTraj();
           if (executing_traj_ == nullptr || executing_traj_->size() - 1 < exe_traj_index_) 
           {
-            m.unlock();
             return;
-          }
-          common::State state;
-          executing_traj_->at(exe_traj_index_).traj.GetState(current_time-executing_traj_->at(exe_traj_index_).start_time, &state);
-          double decelerate = 0.5;
-          double duration = state.velocity/decelerate;
-          double theta = state.angle;
-          Eigen::Vector2d vel(state.velocity * cos(theta), state.velocity * sin(theta));
-          Eigen::Vector2d acc(-decelerate * cos(theta)/2.0, -decelerate * sin(theta)/2.0);
-          Eigen::Matrix<double, 2, 6> posmatrix;
-          posmatrix.setZero();
-          posmatrix.col(5) = state.vec_position;
-          posmatrix.col(4) = vel;
-          posmatrix.col(3) = acc;
-
-          // plan_utils::Piece stoptraj(1.0, posmatrix, 1.0);
-          
-          std::vector<double> durs;
-          std::vector<CoefficientMat> cMats1;
-          cMats1.push_back(posmatrix);
-          durs.push_back(duration);
-          plan_utils::Trajectory _traj(durs, cMats1, 1);
-          plan_utils::TrajContainer trajcon;
-          trajcon.addSingulTraj(_traj, current_time);
-
-          next_traj_ = std::unique_ptr<plan_utils::SingulTrajData>(new plan_utils::SingulTrajData(trajcon.singul_traj));
-
-          executing_traj_ = std::move(next_traj_);
-          next_traj_.release();
-          fsm_num = 0;
-          final_traj_index_ = executing_traj_->size() - 1;
-          exe_traj_index_ = 0; 
-          m.unlock();
-
+          }          
           p_traj_vis_->displayPolyTraj(executing_traj_);
           Display();
         }
@@ -367,7 +376,7 @@ namespace plan_utils
         rot << cos(theta), -sin(theta),
                 sin(theta), cos(theta);
         Vecf<2> pos_error = rot * (state.vec_position - desired_state.vec_position);           
-        std::cout<<"angle: "<<desired_state.angle/3.14*180<< " pos error x: "<<pos_error(0)<<" pos error y: "<<pos_error(1)<<std::endl;    
+        // std::cout<<"angle: "<<desired_state.angle/3.14*180<< " pos error x: "<<pos_error(0)<<" pos error y: "<<pos_error(1)<<std::endl;    
 
         // std::cout<<"state.angle: "<<state.angle<<"desired_state.angle "<<desired_state.angle<<std::endl;    
         // std::cout<<"yaw_rate_tmp "<<yaw_rate_tmp<<std::endl;    
@@ -515,38 +524,66 @@ namespace plan_utils
       plan_utils::SurroundTrajData dymicObs;
       p_planner_->getSurrTraj(dymicObs);  
       double tt = 0.0;
-      for(int i = 0; i < executing_traj_->size(); i++){
-        for(double t = 0.0; t < executing_traj_->at(i).duration; t+=0.05){
+      double t0 = ros::Time::now().toSec() -executing_traj_->at(exe_traj_index_).start_time;
+      double ti = ros::Time::now().toSec();
+      double tadd = 0.0;
+      int i = exe_traj_index_;
+      bool got_initpos = false;
+      Eigen::Vector2d initpos;
+      while(i < executing_traj_->size() && tadd <3.0){
+
+          common::State fullstate;
+          executing_traj_->at(i).traj.GetState(t0, &fullstate);
+
           Eigen::Vector2d pos;
           Eigen::Vector3d state;
           double yaw;
-          pos = executing_traj_->at(i).traj.getPos(t);
-          yaw = executing_traj_->at(i).traj.getAngle(t);
+          if (!got_initpos) 
+          {
+            initpos = fullstate.vec_position;
+            got_initpos = true;
+          }
+          pos = fullstate.vec_position;
+          yaw = fullstate.angle;
           state << pos[0],pos[1],yaw;
           map_adapter_.CheckIfCollisionUsingPosAndYaw(vp_,state,&is_collision);
           if(is_collision)  return true;   
 
-          double ttt = tt + t;
           // std::cout<<"dymicObs.size is "<<dymicObs.size()<<std::endl;
 
           // dynamic obstacles recheck
           for (int sur_id = 0; sur_id < dymicObs.size(); sur_id++)
           {
-            if (ttt < dymicObs[sur_id].duration)
+            if (ti > dymicObs[sur_id].start_time && 
+                ti - dymicObs[sur_id].start_time < dymicObs[sur_id].duration)
             {
               // std::cout<<"ttt is "<<ttt<<std::endl;
 
               // std::cout<<"dymicObs[sur_id].duration is "<<dymicObs[sur_id].duration<<std::endl;
-              Eigen::Vector2d surround_p = dymicObs[sur_id].traj.getPos(ttt);
+              Eigen::Vector2d surround_p = dymicObs[sur_id].traj.getPos(ti - dymicObs[sur_id].start_time);
               // std::cout<<"surround_p is "<<surround_p<<std::endl;
               // std::cout<<"pos is "<<pos<<std::endl;
 
-              if ((surround_p - pos).norm()<0.7) return true; 
+              if ((surround_p - pos).norm()<0.6)
+              { 
+                Eigen::Vector2d init_p = dymicObs[sur_id].traj.getPos(0.0);
+                Eigen::Vector2d init_dp = init_p - initpos;
+                double yawtoagent = atan(init_dp(1)/ init_dp(0));
+                if (yawtoagent <-1.57 || yawtoagent > 1.57) continue; //agent come from the back, dun care
+                map_adapter_.CheckCollisionUsingGlobalPosition(init_p, &is_collision);
+                if (!is_collision) return true; //filter away noises from static obstacles
+              } 
             }    
           }
       
-        }
-        tt += executing_traj_->at(i).duration;
+          t0 += 0.05;
+          ti += 0.05;
+          tadd += 0.05;
+          if (t0 > executing_traj_->at(i).duration)
+          {
+            t0 -= executing_traj_->at(i).duration;
+            i++;
+          }
       }
       // tracking error recheck
       common::State desired_state;
