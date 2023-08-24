@@ -564,7 +564,7 @@ namespace plan_utils
               // std::cout<<"surround_p is "<<surround_p<<std::endl;
               // std::cout<<"pos is "<<pos<<std::endl;
 
-              if ((surround_p - pos).norm()<0.6)
+              if ((surround_p - pos).norm()<0.4)
               { 
                 Eigen::Vector2d init_p = dymicObs[sur_id].traj.getPos(0.0);
                 Eigen::Vector2d init_dp = init_p - initpos;
