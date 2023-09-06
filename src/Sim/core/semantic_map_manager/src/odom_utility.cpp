@@ -25,6 +25,7 @@
 #include <people_msgs/People.h>
 #include <tf/transform_listener.h>
 #include <visualization_msgs/Marker.h>
+#include <std_msgs/Float32.h>
 
 using namespace Eigen;
 using Json = nlohmann::json;
@@ -44,7 +45,7 @@ void odom_cb(const nav_msgs::Odometry::ConstPtr& msg);
 void people_cb(const people_msgs::People::ConstPtr& msg);
 std::string target_frame_ = "/map";
 std::string people_frame_ = "base_link";
-ros::Publisher vis_pub_;
+ros::Publisher vis_pub_, peopledens_pub_;
 tf::TransformListener* pListener = NULL;
 double angularZ_ = 0.0;
 double pre_time = 3.0, deltatime = 0.5;
@@ -98,6 +99,7 @@ int main(int argc, char *argv[]) {
 
   	ParseVehicleSet(&vehicle_set_);
     pListener = new (tf::TransformListener);
+    pos_ << 0.0, 0.0, 0.0;
 
   	SetpointpubCBTimer_ = nh.createTimer(ros::Duration(0.1), SetpointpubCB);  
   	ros::Subscriber odom_sub = nh.subscribe<nav_msgs::Odometry>("/odom", 10, odom_cb);
@@ -115,6 +117,7 @@ int main(int argc, char *argv[]) {
     goal_pub_= nh.advertise<geometry_msgs::PoseStamped>("/path_planning_simple/goal", 1);
     ros::Timer timer = nh.createTimer(ros::Duration(1.0/3.0), TimerCallback);
     sgoal_pub_= nh.advertise<geometry_msgs::PoseStamped>("/shortterm_goal", 1);
+    peopledens_pub_= nh.advertise<std_msgs::Float32>("/people_density", 1);
 
   	ros::spin();
 	ros::waitForShutdown();
@@ -333,11 +336,17 @@ void people_cb(const people_msgs::People::ConstPtr& msg)
   // tf::vector3MsgToTF(interframe_twist.angular, omega_b_a);
   // tf::vector3MsgToTF(interframe_twist.linear, v_b_a);
   visualization_msgs::MarkerArray surtrajs;
-
+  int people_count = 0;
   for (int i = 0; i < msg->people.size(); ++i)
   {
     tf::Vector3 p_in_a(msg->people[i].position.x, msg->people[i].position.y, msg->people[i].position.z);
     tf::Vector3 v_in_a(msg->people[i].velocity.x, msg->people[i].velocity.y, msg->people[i].velocity.z);
+    Eigen::Vector3d peoplepos(msg->people[i].position.x, msg->people[i].position.y, 0.0);
+    if ((peoplepos-pos_).norm()<3.0)
+    {
+      people_count++;
+    }
+    
     // // tf::Vector3 v_in_world = -omega_b_a.cross(p_in_a) + transform.getBasis()*v_in_a - v_b_a;
     // tf::Vector3 v_in_world = transform.getBasis()*v_in_a -transform.getBasis()*skew_sym*p_in_a ;
     // tf::Vector3 p_in_world = transform.getBasis()*p_in_a + transform.getOrigin();
@@ -394,6 +403,10 @@ void people_cb(const people_msgs::People::ConstPtr& msg)
   }
 
   surround_traj_pub.publish(surtrajs);
+  double people_dens = (double)people_count / (M_PI * 3.0 * 3.0);
+  std_msgs::Float32 msgg;
+  msgg.data = people_dens;
+  peopledens_pub_.publish(msgg);
 }
 
 void SetpointpubCB(const ros::TimerEvent& e)

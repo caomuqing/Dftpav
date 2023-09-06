@@ -47,8 +47,8 @@ class DataRenderer {
   ErrorType GetSurroundingVehicles(const common::VehicleSet &vehicle_set);
   ErrorType GetSurroundingObjects();
 
-  ErrorType RayCastingOnObstacleMap();
-  ErrorType FakeMapper();
+  ErrorType RayCastingOnObstacleMap(const double &time_stamp);
+  ErrorType FakeMapper(const double &time_stamp);
   ErrorType InjectObservationNoise();
 
   bool if_kdtree_lane_net_updated_ = false;
@@ -68,6 +68,8 @@ class DataRenderer {
 
   std::set<std::array<decimal_t, 2>> obs_grids_;
   std::set<std::array<decimal_t, 2>> free_grids_;
+  std::vector<double> obs_grids_time_;
+  std::set<std::array<decimal_t, 3>> obs_grids3_;
 
   double time_stamp_;
 

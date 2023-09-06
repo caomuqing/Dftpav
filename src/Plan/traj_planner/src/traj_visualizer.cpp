@@ -256,9 +256,9 @@ namespace plan_utils
     mk.color.b = 0;
     mk.color.a = 1;
 
-    mk.scale.x = 0.8;
-    mk.scale.y = 0.8;
-    mk.scale.z = 0.8;
+    mk.scale.x = 0.2;
+    mk.scale.y = 0.2;
+    mk.scale.z = 0.2;
 
     geometry_msgs::Point pt;
 

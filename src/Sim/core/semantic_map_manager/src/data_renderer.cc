@@ -47,7 +47,7 @@ ErrorType DataRenderer::Render(const double &time_stamp,
   }
 
   TicToc timer;
-  FakeMapper(); // obtain obs_grids
+  FakeMapper(time_stamp); // obtain obs_grids
   
   // printf("[RayCasting]Time cost: %lf ms\n", timer.toc());
 
@@ -233,35 +233,61 @@ ErrorType DataRenderer::GetObstacleMap(
   return kSuccess;
 }
 
-ErrorType DataRenderer::FakeMapper() {
+ErrorType DataRenderer::FakeMapper(const double &time_stamp) {
   decimal_t dist_thres = obstacle_map_info_.h_metric / 2.0 * 0.8;
   // obs_grids_.clear(); obs_grids_
-  RayCastingOnObstacleMap();
+  RayCastingOnObstacleMap(time_stamp);
 
   decimal_t ego_pos_x = ego_state_.vec_position(0);
   decimal_t ego_pos_y = ego_state_.vec_position(1);
   // Fill past obstacles and remove far ones
-  for (auto it = obs_grids_.begin(); it != obs_grids_.end();) {
+  // for (auto it = obs_grids_.begin(); it != obs_grids_.end();) {
+  //   decimal_t dx = abs((*it)[0] - ego_pos_x);
+  //   decimal_t dy = abs((*it)[1] - ego_pos_y);
+  //   if (dx >= dist_thres || dy >= dist_thres) {
+  //     it = obs_grids_.erase(it);
+  //     continue;
+  //   } else if (time_stamp - (*itt) > 10.0) {
+  //     it = obs_grids_.erase(it);
+  //     continue;      
+  //   } else {
+  //     // p_obstacle_grid_->SetValueUsingGlobalPosition(
+  //     //     *it, GridMap2D::SCANNED_OCCUPIED);
+  //     p_obstacle_grid_->SetValueUsingGlobalPosition(
+  //         *it, GridMap2D::OCCUPIED);
+  //     //hzc scanned OCCUPIED
+  //     ++it;
+  //   }
+
+  obs_grids_.clear();
+  for (auto it = obs_grids3_.begin(); it != obs_grids3_.end();) {
     decimal_t dx = abs((*it)[0] - ego_pos_x);
     decimal_t dy = abs((*it)[1] - ego_pos_y);
     if (dx >= dist_thres || dy >= dist_thres) {
-      it = obs_grids_.erase(it);
+      it = obs_grids3_.erase(it);
       continue;
+    } else if (time_stamp - (*it)[2] > 10.0) {
+      it = obs_grids3_.erase(it);
+      continue;      
     } else {
+      std::array<decimal_t, 2> p_w;
+      p_w[0] = (*it)[0];
+      p_w[1] = (*it)[1];
+      obs_grids_.insert(p_w);
       // p_obstacle_grid_->SetValueUsingGlobalPosition(
       //     *it, GridMap2D::SCANNED_OCCUPIED);
       p_obstacle_grid_->SetValueUsingGlobalPosition(
-          *it, GridMap2D::OCCUPIED);
+          p_w, GridMap2D::OCCUPIED);
       //hzc scanned OCCUPIED
       ++it;
-    }
+    }    
   }
   return kSuccess;
 }
 
 
 //@yuwei : get grid map in Cartesian coordinates
-ErrorType DataRenderer::RayCastingOnObstacleMap() {
+ErrorType DataRenderer::RayCastingOnObstacleMap(const double &time_stamp) {
   Vec3f ray_casting_origin;
   ego_vehicle_.Ret3DofStateAtGeometryCenter(&ray_casting_origin);
 
@@ -280,7 +306,15 @@ ErrorType DataRenderer::RayCastingOnObstacleMap() {
     for (const auto coord : obs_coord_set) {
       std::array<decimal_t, 2> p_w;
       p_obstacle_grid_->GetGlobalPositionUsingCoordinate(coord, &p_w);
-      obs_grids_.insert(p_w);
+
+      std::array<decimal_t, 3> p_w3;
+      p_w3[0] = p_w[0];
+      p_w3[1] = p_w[1];
+      p_w3[2] = time_stamp;
+
+      // obs_grids_.insert(p_w);
+      obs_grids3_.insert(p_w3);
+      // obs_grids_time_.insert(time_stamp);
     }
   }
   for (int i = 0; i < p_obstacle_grid_->data_size(); ++i) {
