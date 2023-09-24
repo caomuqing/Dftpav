@@ -12,6 +12,7 @@
 #include "ros/ros.h"
 #include "semantic_map_manager/data_renderer.h"
 #include "vehicle_msgs/decoder.h"
+#include <Eigen/Eigen>
 
 namespace semantic_map_manager {
 

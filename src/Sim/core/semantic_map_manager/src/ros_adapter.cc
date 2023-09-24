@@ -37,13 +37,18 @@ void RosAdapter::DyObsCallback(const visualization_msgs::MarkerArray& msg){
     std::vector<common::State> traj;
     double cur_time = trajmsg.header.stamp.toSec();
     int kdx = 0;
+    Eigen::Vector2d point1(trajmsg.points[0].x, trajmsg.points[0].y);
+    Eigen::Vector2d point2(trajmsg.points[1].x, trajmsg.points[1].y);
+    Eigen::Vector2d point_delta = point2 - point1;
+    double vell = (point1 - point2).norm()/deltatime;
+    double anglee = atan2(point_delta(1), point_delta(0));
     for(auto point : trajmsg.points){
       common::State state;
       state.vec_position[0] = point.x;
       state.vec_position[1] = point.y;
-      state.angle = point.z;
-      state.curvature = 1.0/radiuss[idx];
-      state.velocity = desiredVs[idx];
+      state.angle = anglee;
+      state.curvature = 0.0;
+      state.velocity = vell;
       state.acceleration = 0.0; 
       state.time_stamp = cur_time + kdx * deltatime;
       traj.push_back(state);

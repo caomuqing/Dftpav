@@ -52,7 +52,7 @@ double pre_time = 3.0, deltatime = 0.5;
 visualization_msgs::Marker::ConstPtr line_msg_;
 bool initialized_=false;
 int current_leg_ = 0;
-double goal_radius_ = 0.5;
+double goal_radius_ = 1.5;
 double shortterm_dist_ = 3.0;
 nav_msgs::Path path_msg_;
 
@@ -73,11 +73,12 @@ int main(int argc, char *argv[]) {
 	// initialize ROS
 	ros::init(argc, argv, "odom_utility");
 	ros::NodeHandle nh("~");
-  if (!nh.getParam("vehicle_info_path", vehicle_set_path_)) {
+  if (!nh.getParam("vehicle_info_path", vehicle_set_path_) ||
+      !nh.getParam("deltatime",deltatime)) {
     	ROS_ERROR("Failed to get param %s", vehicle_set_path_.c_str());
     	assert(false);
   	}
-    nh.getParam("deltatime",deltatime);
+    
 
     if(!nh.getParam("easting", easting) ||
     !nh.getParam("northing", northing) ||

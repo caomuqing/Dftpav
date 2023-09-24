@@ -381,9 +381,9 @@ namespace plan_utils
         // std::cout<<"state.angle: "<<state.angle<<"desired_state.angle "<<desired_state.angle<<std::endl;    
         // std::cout<<"yaw_rate_tmp "<<yaw_rate_tmp<<std::endl;    
         // std::cout<<"ratio is "<<state.velocity*tan(state.steer)/0.7/yaw_rate_tmp<<std::endl;    
-        double maxx = 0.5;
+        double maxx = 0.8;
         double vel_cmd = std::min(maxx, std::max(-maxx, state.velocity) + pos_error(0)*0.4); //hard limit
-        if (scan_min_<0.4 || scan_min2_ <0.25) vel_cmd = std::min(0.0, vel_cmd);
+        if (scan_min_<0.4 || scan_min2_ <0.31) vel_cmd = std::min(0.0, vel_cmd);
 
         double max_yaw_rate_ = 30.0f/180.0f*3.14159;
         double yaw_rate_tmp_follow =wrapToPi(state.angle - desired_state.angle) * gain_heading_follow_;
@@ -735,7 +735,7 @@ void TrajPlannerServer::ScanCallback(const sensor_msgs::LaserScan::ConstPtr& sca
           scan_min=scan_msg->ranges[i];        
       }
 
-      if (fabs(angle)<1.0)
+      if (fabs(angle)<1.1)
       {
        if (scan_msg->ranges[i]<scan_min2)
           scan_min2=scan_msg->ranges[i];        

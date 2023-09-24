@@ -194,7 +194,7 @@ namespace plan_manage
     // if(tri_flag) return kWrongStatus;
     Eigen::Vector4d start_state;
     start_state << head_state_.vec_position, head_state_.angle, head_state_.velocity; 
-    if ((parking_end - start_state).head(2).norm() < 1.0){
+    if ((parking_end - start_state).head(2).norm() < 1.5){
       ROS_WARN("arrive!");
       have_parking_target = false; //hzc
       return kWrongStatus;

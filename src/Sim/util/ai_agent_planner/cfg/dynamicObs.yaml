@@ -1,6 +1,6 @@
 vehicle_num: 4
 predictiontime: 30.0
-deltatime: 1.0
+deltatime: 0.5
 car1: {
   centerpx: -33.5759,
   centerpy: 21.998,
