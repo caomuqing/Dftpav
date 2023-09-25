@@ -381,7 +381,7 @@ namespace plan_utils
         // std::cout<<"state.angle: "<<state.angle<<"desired_state.angle "<<desired_state.angle<<std::endl;    
         // std::cout<<"yaw_rate_tmp "<<yaw_rate_tmp<<std::endl;    
         // std::cout<<"ratio is "<<state.velocity*tan(state.steer)/0.7/yaw_rate_tmp<<std::endl;    
-        double maxx = 0.8;
+        double maxx = 0.6;
         double vel_cmd = std::min(maxx, std::max(-maxx, state.velocity) + pos_error(0)*0.4); //hard limit
         if (scan_min_<0.4 || scan_min2_ <0.31) vel_cmd = std::min(0.0, vel_cmd);
 
@@ -398,7 +398,7 @@ namespace plan_utils
         cmd_msg.angular.x = 0.0;
         cmd_msg.angular.y = 0.0;
         // cmd_msg.angular.z = yaw_rate_tmp;
-        cmd_msg.angular.z = state.velocity*(tan(state.steer)/0.7+yaw_rate_tmp);
+        cmd_msg.angular.z = state.velocity*(tan(state.steer)/0.7)+yaw_rate_tmp;
 
         cmd_vel_pub_.publish(cmd_msg);              
       }
@@ -614,7 +614,7 @@ namespace plan_utils
       return kWrongStatus;
     }
     desired_state.time_stamp = ros::Time::now().toSec()+Budget;
-    if(executing_traj_ ==nullptr ||true){
+    if(executing_traj_ ==nullptr){
       p_planner_->set_initial_state(desired_state);
       if (trajplan()!= kSuccess) {
         Display();
@@ -658,13 +658,24 @@ namespace plan_utils
           }
         }
       }
+
+      common::State _state = desired_state;
       double t = desired_state.time_stamp - executing_traj_->at(pidx).start_time; 
       executing_traj_->at(pidx).traj.GetState(t, &desired_state);
       FilterSingularityState(desired_state_hist_, &desired_state);
       desired_state_hist_.push_back(desired_state);
       if (desired_state_hist_.size() > 100)
         desired_state_hist_.erase(desired_state_hist_.begin());
-      p_planner_->set_initial_state(desired_state);
+
+      Eigen::Vector2d pos = desired_state.vec_position;
+      if (((desired_state.vec_position - _state.vec_position).norm()>0.30 )) //desired too far from current
+      {
+        p_planner_->set_initial_state(_state);
+      }
+      else
+      {
+        p_planner_->set_initial_state(desired_state); 
+      }
       if (trajplan() != kSuccess) {
         Display();      
         return kWrongStatus;
@@ -687,8 +698,6 @@ namespace plan_utils
         } 
        }
       }
-      
-
 
     }
     else{

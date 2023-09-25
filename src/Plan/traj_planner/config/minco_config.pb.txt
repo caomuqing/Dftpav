@@ -19,11 +19,11 @@ map_cfg {
   s_back_len: 20.0
 
   dyn_bounds {
-    max_lon_vel: 0.8
+    max_lon_vel: 0.6
     min_lon_vel: 0.0
     max_lon_acc: 2.0
     max_lon_dec: -2.0
-    max_lat_vel: 0.5
+    max_lat_vel: 0.3
     max_lat_acc: 1.25
   }
 
@@ -52,7 +52,7 @@ map_cfg {
   traj_forward_penalty: 1.0
   traj_back_penalty: 3.0
   traj_gear_switch_penalty: 15.0
-  traj_steer_penalty: 0.5
+  traj_steer_penalty: 3.5
   traj_steer_change_penalty: 0.0
   map_resl: 0.2
   step_arc: 0.9
@@ -70,21 +70,21 @@ opt_cfg {
   wei_feas: 500.0
   wei_sqrvar: 10.0
   wei_time: 10.0
-  dyn_obs_clearance: 0.4
+  dyn_obs_clearance: 0.2
   half_margin: 0.15
 
   traj_piece_duration: 1.0
-  max_frontend_forward_vel: 0.8
+  max_frontend_forward_vel: 0.6
   max_frontend_forward_acc: 2.0
-  max_frontend_backward_vel: 0.5
+  max_frontend_backward_vel: 0.3
   max_frontend_backward_acc: 1.5
   max_frontend_cur: 1.0
   
-  max_forward_vel: 0.8
+  max_forward_vel: 0.6
   max_forward_acc: 2.0
   max_forward_cur: 1.0
 
-  max_backward_vel: 0.5
+  max_backward_vel: 0.3
   max_backward_acc: 1.5
   max_backward_cur: 1.0
 
