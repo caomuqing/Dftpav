@@ -119,7 +119,7 @@ namespace plan_utils
     bool use_sim_state_ = true;
     double gain_heading_follow_ = 0.5;
     double gain_heading_y_correction_ = 0.5;
-
+    double num_decelerate_ = 3.0;
     
     //_______________
     /* ros related */
@@ -158,6 +158,7 @@ namespace plan_utils
     void ScanCallback(const sensor_msgs::LaserScan::ConstPtr& scan_msg);
 
     bool CheckReplan();
+    bool CheckReplanTraj(std::unique_ptr<SingulTrajData>& executing_traj, int exe_traj_index, int final_traj_index);    
     Eigen::Vector4d end_pt_;
     ros::Subscriber parking_sub_;
     ros::Subscriber scan_sub_;

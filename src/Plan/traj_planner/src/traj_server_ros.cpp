@@ -133,21 +133,25 @@ namespace plan_utils
   void TrajPlannerServer::addStopTraj() {
     double current_time = ros::Time::now().toSec();
     m.lock();
-    if (executing_traj_ == nullptr || executing_traj_->size() - 1 < exe_traj_index_) 
+    if (executing_traj_ == nullptr || executing_traj_->size() - 1 < exe_traj_index_ ||
+        (final_traj_index_ == exe_traj_index_ && executing_traj_->at(exe_traj_index_).duration <= num_decelerate_+0.01) )
     {
       m.unlock();
       return;
     }
     common::State state;
+    common::State real_state;
+    if(map_adapter_.GetEgoState(&real_state)!=kSuccess) return;
+
     executing_traj_->at(exe_traj_index_).traj.GetState(current_time-executing_traj_->at(exe_traj_index_).start_time, &state);
-    double decelerate = 0.5;
+    double decelerate = state.velocity>0? 2.0 : -2.0;
     double duration = state.velocity/decelerate;
-    double theta = state.angle;
-    Eigen::Vector2d vel(state.velocity * cos(theta), state.velocity * sin(theta));
+    double theta = real_state.angle; //use the real robot heading
+    Eigen::Vector2d vel(state.velocity * cos(theta), state.velocity * sin(theta)); //use the velocity of thed desired
     Eigen::Vector2d acc(-decelerate * cos(theta)/2.0, -decelerate * sin(theta)/2.0);
     Eigen::Matrix<double, 2, 6> posmatrix;
     posmatrix.setZero();
-    posmatrix.col(5) = state.vec_position;
+    posmatrix.col(5) = real_state.vec_position; //use the position of the real robot
     posmatrix.col(4) = vel;
     posmatrix.col(3) = acc;
 
@@ -162,7 +166,7 @@ namespace plan_utils
     trajcon.addSingulTraj(_traj, current_time);
 
     next_traj_ = std::unique_ptr<plan_utils::SingulTrajData>(new plan_utils::SingulTrajData(trajcon.singul_traj));
-
+    num_decelerate_ = duration;
     executing_traj_ = std::move(next_traj_);
     next_traj_.release();
     final_traj_index_ = executing_traj_->size() - 1;
@@ -197,7 +201,8 @@ namespace plan_utils
       executing_traj_.release();
       m.unlock();
       p_planner_->release_initial_state();
-      return;
+      // return;
+      // printf("[TrajPlannerServer]Mission complete1.\n");
     }
      std_msgs::Bool debug;
       debug.data = 1;
@@ -205,31 +210,48 @@ namespace plan_utils
     if (enable_urban_){
       // the requency is high enough so that we will not consider event triggered replanning
       static int fsm_num = 0;
+      // printf("[TrajPlannerServer]Mission complete2.\n");
       fsm_num++;
-      if (fsm_num > 100000||CheckReplan()) {
+      if (fsm_num > 1000000000||(CheckReplan()) || executing_traj_==nullptr) {
+        // printf("[TrajPlannerServer]Mission complete3.\n");
+        addStopTraj();
+          if (executing_traj_ != nullptr) 
+          {
+            p_traj_vis_->displayPolyTraj(executing_traj_);
+            Display();    
+          }          
+     
         ErrorType replanResult; 
         if (next_traj_ == nullptr) {
           replanResult = Replan();
+          // printf("[TrajPlannerServer]Mission complete4.\n");
           // return;
         }
         if (next_traj_ !=nullptr && replanResult == kSuccess) {
-          m.lock();
-          executing_traj_ = std::move(next_traj_);
-          next_traj_.release();
-          fsm_num = 0;
-          final_traj_index_ = executing_traj_->size() - 1;
-          exe_traj_index_ = 0; 
-          m.unlock();
           
         // ros::Duration(100.0).sleep();
           
-          if (CheckReplan()) //check if the new plan works, if not, delete it again
+          if (CheckReplanTraj(next_traj_, 0, next_traj_->size() - 1)) //check if the new plan works, if not, delete it again
           {
-            addStopTraj();
-            std::cout<<"check replan for new plan returns true!"<<std::endl;
+            // if (executing_traj_ == nullptr || executing_traj_->size() - 1 < exe_traj_index_) 
+            // {
+            //   return;
+            // }          
+            // p_traj_vis_->displayPolyTraj(executing_traj_);
+            // Display();            
+            next_traj_.release(); //do not use the generated trajectory
+            // std::cout<<"check replan for new plan returns true!"<<std::endl;
+            printf("\033[32m[PlanCycleCallback]check replan for new plan returns true! %lf ms.\n\033[0m");
           }
           else
           {
+            m.lock();
+            executing_traj_ = std::move(next_traj_);
+            next_traj_.release();
+            fsm_num = 0;
+            final_traj_index_ = executing_traj_->size() - 1;
+            exe_traj_index_ = 0; 
+            m.unlock();            
             p_traj_vis_->displayPolyTraj(executing_traj_);
             Display();
           }
@@ -241,7 +263,9 @@ namespace plan_utils
           // if (executing_traj_!=nullptr) executing_traj_.release();
           // m.unlock();
 
-          addStopTraj();
+          // addStopTraj();
+          // printf("\033[32m[PlanCycleCallback]no feasible replan found! adding stop traj!! %lf ms.\n\033[0m");
+          if (next_traj_ != nullptr) next_traj_.release();
           if (executing_traj_ == nullptr || executing_traj_->size() - 1 < exe_traj_index_) 
           {
             return;
@@ -253,7 +277,7 @@ namespace plan_utils
 
     }
     else{
-      CheckReplan();
+      // (CheckReplanTraj(executing_traj_, exe_traj_index_, final_traj_index_));
     }
   }
 
@@ -381,7 +405,7 @@ namespace plan_utils
         // std::cout<<"state.angle: "<<state.angle<<"desired_state.angle "<<desired_state.angle<<std::endl;    
         // std::cout<<"yaw_rate_tmp "<<yaw_rate_tmp<<std::endl;    
         // std::cout<<"ratio is "<<state.velocity*tan(state.steer)/0.7/yaw_rate_tmp<<std::endl;    
-        double maxx = 0.6;
+        double maxx = 0.8;
         double vel_cmd = std::min(maxx, std::max(-maxx, state.velocity) + pos_error(0)*0.4); //hard limit
         if (scan_min_<0.4 || scan_min2_ <0.31) vel_cmd = std::min(0.0, vel_cmd);
 
@@ -490,6 +514,116 @@ namespace plan_utils
       // printf("[TrajPlannerServer]Filter angle to %lf.\n", hist.back().angle);
     }
     return kSuccess;
+  }
+
+  bool TrajPlannerServer::CheckReplanTraj(std::unique_ptr<SingulTrajData>& executing_traj, int exe_traj_index, int final_traj_index){
+      //return 1: replan 0: not
+      // std::cout<<"checking replan!! "<<std::endl;
+      if(executing_traj==nullptr) return true;
+      bool is_near = false;
+      bool is_collision = false;
+      bool is_close_turnPoint = false;
+      double cur_time = ros::Time::now().toSec();
+      Eigen::Vector2d localTarget;
+      localTarget = executing_traj->back().traj.getPos(executing_traj->back().duration);
+      double totaltrajTime = 0.0;
+      for(int i = 0; i<executing_traj->size(); i++){
+          totaltrajTime += executing_traj->at(i).duration;
+      }
+      //is close to turnPoint?
+      if(exe_traj_index == final_traj_index_) is_close_turnPoint = false;
+      else{
+        if((executing_traj->at(exe_traj_index).end_time - cur_time)<2.5)
+          is_close_turnPoint = true;
+      }
+      //is near?
+      if((executing_traj->back().end_time - cur_time)<2*totaltrajTime / 3.0) is_near = true;
+      else is_near = false;
+      if(is_near && !is_close_turnPoint&&(localTarget-end_pt_.head(2)).norm()>0.1){
+        return true;
+      }
+      //collision-check    
+      p_planner_->updateSurrTraj();
+      plan_utils::SurroundTrajData dymicObs;
+      p_planner_->getSurrTraj(dymicObs);  
+      double tt = 0.0;
+      double t0 = ros::Time::now().toSec() -executing_traj->at(exe_traj_index).start_time;
+      double ti = ros::Time::now().toSec();
+      double tadd = 0.0;
+      int i = exe_traj_index;
+      bool got_initpos = false;
+      Eigen::Vector2d initpos;
+      while(i < executing_traj->size() && tadd <3.0){
+
+          common::State fullstate;
+          executing_traj->at(i).traj.GetState(t0, &fullstate);
+
+          Eigen::Vector2d pos;
+          Eigen::Vector3d state;
+          double yaw;
+          if (!got_initpos) 
+          {
+            initpos = fullstate.vec_position;
+            got_initpos = true;
+          }
+          pos = fullstate.vec_position;
+          yaw = fullstate.angle;
+          state << pos[0],pos[1],yaw;
+          map_adapter_.CheckIfCollisionUsingPosAndYaw(vp_,state,&is_collision);
+          if(is_collision)  return true;   
+
+          // std::cout<<"dymicObs.size is "<<dymicObs.size()<<std::endl;
+
+          // dynamic obstacles recheck
+          for (int sur_id = 0; sur_id < dymicObs.size(); sur_id++)
+          {
+            if (ti > dymicObs[sur_id].start_time && 
+                ti - dymicObs[sur_id].start_time < dymicObs[sur_id].duration)
+            {
+              // std::cout<<"ttt is "<<ttt<<std::endl;
+
+              // std::cout<<"dymicObs[sur_id].duration is "<<dymicObs[sur_id].duration<<std::endl;
+              Eigen::Vector2d surround_p = dymicObs[sur_id].traj.getPos(ti - dymicObs[sur_id].start_time);
+              // std::cout<<"surround_p is "<<surround_p<<std::endl;
+              // std::cout<<"pos is "<<pos<<std::endl;
+
+              if ((surround_p - pos).norm()<0.4)
+              { 
+                Eigen::Vector2d init_p = dymicObs[sur_id].traj.getPos(0.0);
+                Eigen::Vector2d init_dp = init_p - initpos;
+                double yawtoagent = atan(init_dp(1)/ init_dp(0));
+                if (yawtoagent <-1.57 || yawtoagent > 1.57) continue; //agent come from the back, dun care
+                map_adapter_.CheckCollisionUsingGlobalPosition(init_p, &is_collision);
+                if (!is_collision) return true; //filter away noises from static obstacles
+              } 
+            }    
+          }
+      
+          t0 += 0.05;
+          ti += 0.05;
+          tadd += 0.05;
+          if (t0 > executing_traj->at(i).duration)
+          {
+            t0 -= executing_traj->at(i).duration;
+            i++;
+          }
+      }
+      // tracking error recheck
+      common::State desired_state;
+      if(map_adapter_.GetEgoState(&desired_state)==kSuccess)
+      {
+        Eigen::Vector2d pos = desired_state.vec_position;
+        double yaw = desired_state.angle;
+        common::State state;
+        double t = ros::Time::now().toSec();
+        executing_traj->at(exe_traj_index).traj.GetState(t-executing_traj->at(exe_traj_index).start_time, &state);
+        if ((ros::Time::now().toSec()-last_replan)>1.0 &&
+          ((pos - state.vec_position).norm()>0.30 )) //|| fabs(yaw - state.angle)>0.15
+          return true;
+
+      }
+      return false;
+      // map_adapter_.CheckIfCollisionUsingPosAndYaw   
   }
 
 
@@ -668,9 +802,25 @@ namespace plan_utils
         desired_state_hist_.erase(desired_state_hist_.begin());
 
       Eigen::Vector2d pos = desired_state.vec_position;
+      desired_state.angle = _state.angle;
       if (((desired_state.vec_position - _state.vec_position).norm()>0.30 )) //desired too far from current
       {
-        p_planner_->set_initial_state(_state);
+        // Eigen::Matrix2d init_R;
+        // init_R << cos(-_state.angle),  -sin(-_state.angle),
+        //           sin(-_state.angle),   cos(-_state.angle);        
+        // _state.vec_position =  _state.vec_position + init_R*Eigen::Vector2d(_state.velocity, 0.0)*0.2;
+        p_planner_->set_initial_state(desired_state);
+        // printf("\033[32m---------------------------------------------------------------\n\033[0m");
+        // printf("\033[32m---------------------------------------------------------------\n\033[0m");
+        // printf("\033[32m---------------------------------------------------------------\n\033[0m");
+        // printf("\033[32m---------------------------------------------------------------\n\033[0m");
+        // printf("\033[32m---------------------------------------------------------------\n\033[0m");
+        // printf("\033[32m---------------------------------------------------------------\n\033[0m");
+        // printf("\033[32m---------------------------------------------------------------\n\033[0m");
+        // printf("\033[32m---------------------------------------------------------------\n\033[0m");
+        // printf("\033[32m---------------------------------------------------------------\n\033[0m");
+        // printf("\033[32m---------------------------------------------------------------\n\033[0m");
+        // printf("\033[32m---------------------------------------------------------------\n\033[0m");
       }
       else
       {
