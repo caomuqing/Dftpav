@@ -26,6 +26,7 @@
 #include <tf/transform_listener.h>
 #include <visualization_msgs/Marker.h>
 #include <std_msgs/Float32.h>
+#include "std_msgs/Float32MultiArray.h"
 
 using namespace Eigen;
 using Json = nlohmann::json;
@@ -43,6 +44,9 @@ ros::Publisher arena_info_dynamic_pub_, surround_traj_pub, arena_info_static_pub
 bool ParseVehicleSet(common::VehicleSet *p_vehicle_set);
 void odom_cb(const nav_msgs::Odometry::ConstPtr& msg);
 void people_cb(const people_msgs::People::ConstPtr& msg);
+void peopleAngleCallback(const std_msgs::Float32MultiArray::ConstPtr& angle_msg);
+double calculateOverlapPercentage(double A, double B, double C, double D);
+
 std::string target_frame_ = "/map";
 std::string people_frame_ = "base_link";
 ros::Publisher vis_pub_, peopledens_pub_;
@@ -68,6 +72,8 @@ meta_state meta_state_ = IDLE;
 enum tracking_state {tIDLE, tONGOING, tFINISH};
 tracking_state tstate_ = tIDLE;
 int tracking_leg_ = 0;
+ros::Time last_people_angle_time_;
+std::vector<Eigen::Vector2d> angle_list_;
 
 int main(int argc, char *argv[]) {
 	// initialize ROS
@@ -101,6 +107,7 @@ int main(int argc, char *argv[]) {
   	ParseVehicleSet(&vehicle_set_);
     pListener = new (tf::TransformListener);
     pos_ << 0.0, 0.0, 0.0;
+    last_people_angle_time_ = ros::Time::now();
 
   	SetpointpubCBTimer_ = nh.createTimer(ros::Duration(0.1), SetpointpubCB);  
   	ros::Subscriber odom_sub = nh.subscribe<nav_msgs::Odometry>("/odom", 10, odom_cb);
@@ -108,6 +115,7 @@ int main(int argc, char *argv[]) {
     ros::Subscriber lines_sub = nh.subscribe<visualization_msgs::Marker>("/line_markers", 10, lines_cb);
     ros::Subscriber pubgoal_sub = nh.subscribe<std_msgs::Bool>("/pub_goal", 10, pubgoal_cb);
     ros::Subscriber globalplan_sub = nh.subscribe<nav_msgs::Path>("/path_planning_node/GlobalPlanner/plan", 10, globalplan_cb);
+    ros::Subscriber people_angle_sub_= nh.subscribe("/angle_list", 1, peopleAngleCallback);
 
   	arena_info_dynamic_pub_ =
       nh.advertise<vehicle_msgs::ArenaInfoDynamic>("/arena_info_dynamic", 10);
@@ -126,6 +134,20 @@ int main(int argc, char *argv[]) {
 		// ros::spinOnce();
 	// }
 	return 0;
+}
+
+void peopleAngleCallback(const std_msgs::Float32MultiArray::ConstPtr& angle_msg)
+{
+  angle_list_.clear();
+  for (int i=0; i<angle_msg->data.size()/2; i++)
+  {
+    Eigen::Vector2d peopleangle(-angle_msg->data[2*i], -angle_msg->data[2*i+1]);
+    if (angle_msg->data[2*i] < angle_msg->data[2*i+1])
+      peopleangle << -angle_msg->data[2*i+1], -angle_msg->data[2*i];
+
+    angle_list_.push_back(peopleangle);
+  }
+  last_people_angle_time_ = ros::Time::now();
 }
 
 void globalplan_cb(const nav_msgs::Path::ConstPtr& msg)
@@ -236,6 +258,18 @@ void pubgoal_cb(const std_msgs::Bool::ConstPtr& msg)
   }
 }
 
+double calculateOverlapPercentage(double A, double B, double C, double D) 
+{
+  double intersection = std::min(B, D) - std::max(A, C);
+  double larger_range = std::max(B-A, D-C);
+  
+  if (intersection <= 0) {
+      return 0.0;
+  }
+  
+  return (double)intersection / larger_range * 100;
+}
+
 void lines_cb(const visualization_msgs::Marker::ConstPtr& msg)
 {
   ros::Time time_now = ros::Time::now();
@@ -261,6 +295,30 @@ void lines_cb(const visualization_msgs::Marker::ConstPtr& msg)
     tf::Stamped<tf::Point> pt_target(startpt, line_msg_->header.stamp, line_msg_->header.frame_id);
     tf::Stamped<tf::Point> endpt_local(endpt, line_msg_->header.stamp, line_msg_->header.frame_id);
     tf::Stamped<tf::Point> endpt_target(endpt, line_msg_->header.stamp, line_msg_->header.frame_id);
+
+    if ((ros::Time::now()-last_people_angle_time_).toSec()<0.3) //people check using image detection
+    {
+      double angle1 = atan(line_msg_->points[2*i].y/line_msg_->points[2*i].x)/M_PI*180.0;
+      double angle2 = atan(line_msg_->points[2*i+1].y/line_msg_->points[2*i+1].x)/M_PI*180.0;
+
+      if (angle1 > angle2)
+      {
+        double ang_tmp = angle1;
+        angle1 = angle2;
+        angle2 = ang_tmp;
+      }
+
+      bool is_people = false;
+      for (auto pp : angle_list_)
+      {
+        if (calculateOverlapPercentage(angle1, angle2, pp(0), pp(1))>80.0)
+        {
+          is_people = true;
+          break;
+        }
+      }
+      if (is_people) continue;
+    }
 
     try{
       pListener->transformPoint(target_frame_, line_msg_->header.stamp,

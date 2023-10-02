@@ -46,9 +46,11 @@ namespace plan_utils
     nh.getParam("enable_urban", enable_urban_);
     nh.param("isparking", isparking,true);
     p_planner_   = new plan_manage::TrajPlanner(nh, ego_id, enable_urban_);
+    last_people_angle_time_ = ros::Time::now();
 
     parking_sub_ = nh_.subscribe("/shortterm_goal", 1, &TrajPlannerServer::ParkingCallback, this);
     scan_sub_= nh_.subscribe("/scan", 1,  &TrajPlannerServer::ScanCallback, this);
+    people_angle_sub_= nh_.subscribe("/angle_list", 1,  &TrajPlannerServer::peopleAngleCallback, this);
 
     if(!isparking){
       trajplan = std::bind(&plan_manage::TrajPlanner::RunOnce,p_planner_);
@@ -408,7 +410,22 @@ namespace plan_utils
         double maxx = 0.8;
         double vel_cmd = std::min(maxx, std::max(-maxx, state.velocity) + pos_error(0)*0.4); //hard limit
         if (scan_min_<0.4 || scan_min2_ <0.31) vel_cmd = std::min(0.0, vel_cmd);
-
+        if ((ros::Time::now()-last_people_angle_time_).toSec()<0.5) //people check using image detection
+        {
+          for (auto people : angle_list_)
+          {
+            double angle_range = 15; //degree
+            double angle_span = 80;
+            //people is near the center and spans a large angle
+            if (((people(0)> -angle_range && people(0)< angle_range)||
+                 (people(1)> -angle_range && people(1)< angle_range)) &&
+                  abs(people(0)-people(1))>angle_span)
+              {
+                vel_cmd = std::min(0.0, vel_cmd);
+                break;
+              }
+          }
+        }
         double max_yaw_rate_ = 30.0f/180.0f*3.14159;
         double yaw_rate_tmp_follow =wrapToPi(state.angle - desired_state.angle) * gain_heading_follow_;
         double yaw_rate_tmp = (vel_cmd>0.0? 1.0 : -1.0) * gain_heading_y_correction_ * pos_error(1) + yaw_rate_tmp_follow;
@@ -876,6 +893,20 @@ namespace plan_utils
     have_parking_target_ = true;
     p_planner_->setParkingEnd(end_pt_);
   }
+
+void TrajPlannerServer::peopleAngleCallback(const std_msgs::Float32MultiArray::ConstPtr& angle_msg)
+{
+  angle_list_.clear();
+  for (int i=0; i<angle_msg->data.size()/2; i++)
+  {
+    Eigen::Vector2d peopleangle(-angle_msg->data[2*i], -angle_msg->data[2*i+1]);
+    if (angle_msg->data[2*i] < angle_msg->data[2*i+1])
+      peopleangle << -angle_msg->data[2*i+1], -angle_msg->data[2*i];
+
+    angle_list_.push_back(peopleangle);
+  }
+  last_people_angle_time_ = ros::Time::now();
+}
 
 void TrajPlannerServer::ScanCallback(const sensor_msgs::LaserScan::ConstPtr& scan_msg)
 {
