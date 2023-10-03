@@ -407,7 +407,7 @@ namespace plan_utils
         // std::cout<<"state.angle: "<<state.angle<<"desired_state.angle "<<desired_state.angle<<std::endl;    
         // std::cout<<"yaw_rate_tmp "<<yaw_rate_tmp<<std::endl;    
         // std::cout<<"ratio is "<<state.velocity*tan(state.steer)/0.7/yaw_rate_tmp<<std::endl;    
-        double maxx = 0.8;
+        double maxx = 1.0;
         double vel_cmd = std::min(maxx, std::max(-maxx, state.velocity) + pos_error(0)*0.4); //hard limit
         if (scan_min_<0.4 || scan_min2_ <0.31) vel_cmd = std::min(0.0, vel_cmd);
         if ((ros::Time::now()-last_people_angle_time_).toSec()<0.5) //people check using image detection
@@ -415,7 +415,7 @@ namespace plan_utils
           for (auto people : angle_list_)
           {
             double angle_range = 15; //degree
-            double angle_span = 80;
+            double angle_span = 35;
             //people is near the center and spans a large angle
             if (((people(0)> -angle_range && people(0)< angle_range)||
                  (people(1)> -angle_range && people(1)< angle_range)) &&
