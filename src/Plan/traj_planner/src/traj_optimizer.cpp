@@ -1381,6 +1381,7 @@ namespace plan_manage
       }
       else
       {
+        continue; //do not consider the dynamic obstacles
         surround_a = surround_trajs_->at(sur_id).traj.getddSigma(surround_trajs_->at(sur_id).duration);
         double exceed_time = pt_time - surround_trajs_->at(sur_id).duration;
         surround_v = surround_trajs_->at(sur_id).traj.getdSigma(surround_trajs_->at(sur_id).duration) +

@@ -65,7 +65,9 @@ namespace plan_utils
 
   void TrajVisualizer::displayFitSurTrajs(plan_utils::SurroundTrajData sur_trajs){
     visualization_msgs::MarkerArray surtrajs;
-    
+    visualization_msgs::Marker traj;
+    traj.action = visualization_msgs::Marker::DELETEALL;    
+    surtrajs.markers.push_back(traj);
     for(int i = 0; i < sur_trajs.size(); i++){
       visualization_msgs::Marker traj;
       traj.action = visualization_msgs::Marker::ADD;

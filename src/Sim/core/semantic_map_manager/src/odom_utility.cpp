@@ -46,13 +46,14 @@ void odom_cb(const nav_msgs::Odometry::ConstPtr& msg);
 void people_cb(const people_msgs::People::ConstPtr& msg);
 void peopleAngleCallback(const std_msgs::Float32MultiArray::ConstPtr& angle_msg);
 double calculateOverlapPercentage(double A, double B, double C, double D);
+double closestDistance(Eigen::Vector2d A, Eigen::Vector2d B, Eigen::Vector2d C); 
 
 std::string target_frame_ = "/map";
 std::string people_frame_ = "base_link";
 ros::Publisher vis_pub_, peopledens_pub_;
 tf::TransformListener* pListener = NULL;
 double angularZ_ = 0.0;
-double pre_time = 3.0, deltatime = 0.5;
+double pre_time = 2.0, deltatime = 0.5;
 visualization_msgs::Marker::ConstPtr line_msg_;
 bool initialized_=false;
 int current_leg_ = 0;
@@ -74,6 +75,7 @@ tracking_state tstate_ = tIDLE;
 int tracking_leg_ = 0;
 ros::Time last_people_angle_time_;
 std::vector<Eigen::Vector2d> angle_list_;
+std::vector<Eigen::Vector2d> lines_list_;
 
 int main(int argc, char *argv[]) {
 	// initialize ROS
@@ -287,6 +289,8 @@ void lines_cb(const visualization_msgs::Marker::ConstPtr& msg)
   static_msg.header.stamp = time_now;
   static_msg.header.frame_id = target_frame_;
 
+  lines_list_.clear();
+
   for (int i = 0; i < num_segs; ++i)
   {
     tf::Vector3 startpt(line_msg_->points[2*i].x, line_msg_->points[2*i].y, 0.0);
@@ -331,6 +335,15 @@ void lines_cb(const visualization_msgs::Marker::ConstPtr& msg)
         // ros::Duration(1.0).sleep();
         return;
      }
+
+    Eigen::Vector2d A(pt_target.getX(), pt_target.getY());
+    Eigen::Vector2d B(endpt_target.getX(), endpt_target.getY());
+    
+    lines_list_.push_back(A);
+    lines_list_.push_back(B);
+
+    if (closestDistance(A, B, pos_.head(2)) > 7.0) continue; // if the line is too far, dun publish it
+    // but the line is still used to filter human detections
 
     vehicle_msgs::PolygonObstacle polygon_msg;
     polygon_msg.header.stamp = time_now;
@@ -403,9 +416,20 @@ void people_cb(const people_msgs::People::ConstPtr& msg)
     Eigen::Vector3d peoplepos(msg->people[i].position.x, msg->people[i].position.y, 0.0);
     if ((peoplepos-pos_).norm()<3.0)
     {
-      people_count++;
+      bool not_good = false;
+      for (int j=0; j<lines_list_.size()/2; j++)
+      {
+        if (closestDistance(lines_list_[2*j], lines_list_[2*j+1], peoplepos.head(2)) < 0.2) //filter those people too close to obstacles
+        {
+          not_good = true;
+          break;
+        }
+      }
+      if (not_good) continue;
     }
+    else continue; //only publish those people close to the robot
     
+    people_count++;
     // // tf::Vector3 v_in_world = -omega_b_a.cross(p_in_a) + transform.getBasis()*v_in_a - v_b_a;
     // tf::Vector3 v_in_world = transform.getBasis()*v_in_a -transform.getBasis()*skew_sym*p_in_a ;
     // tf::Vector3 p_in_world = transform.getBasis()*p_in_a + transform.getOrigin();
@@ -652,6 +676,24 @@ bool ParseVehicleSet(common::VehicleSet *p_vehicle_set) {
 
   fs.close();
   return true;
+}
+
+double closestDistance(Eigen::Vector2d A, Eigen::Vector2d B, Eigen::Vector2d C) 
+{
+    Eigen::Vector2d AB = B - A;
+    Eigen::Vector2d AC = C - A;
+
+    double t = AC.dot(AB) / AB.dot(AB);
+    if (t < 0) {
+        t = 0;
+    } else if (t > 1) {
+        t = 1;
+    }
+
+    Eigen::Vector2d closestPoint = {A(0) + t * AB(0), A(1) + t * AB(1)};
+    Eigen::Vector2d CP = C - closestPoint;
+
+    return CP.norm();
 }
 
 // 00112 void TransformListener::transformTwist(const std::string& target_frame,
