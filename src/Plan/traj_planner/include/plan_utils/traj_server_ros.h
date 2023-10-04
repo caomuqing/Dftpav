@@ -59,7 +59,7 @@
 #include "sensor_msgs/LaserScan.h"
 #include "std_msgs/Float32MultiArray.h"
 
-#define Budget 0.5
+#define Budget 0.1
 namespace plan_utils
 {
 

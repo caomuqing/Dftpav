@@ -180,7 +180,6 @@ namespace plan_utils
     if (!is_replan_on_) {
       return;
     }
-    double current_time0 = ros::Time::now().toSec();
     while (p_input_smm_buff_->try_dequeue(last_smm_)) {
       is_map_updated_ = true;
     }
@@ -207,9 +206,6 @@ namespace plan_utils
       // return;
       // printf("[TrajPlannerServer]Mission complete1.\n");
     }
-
-    printf("\033[32m[TrajPlannerServer]MAKR 0 IS %lf ms.\n\033[0m",
-      (ros::Time::now().toSec()-current_time0)*1000);
      std_msgs::Bool debug;
       debug.data = 1;
       debug_pub.publish(debug);
@@ -223,24 +219,20 @@ namespace plan_utils
         addStopTraj();
           if (executing_traj_ != nullptr) 
           {
-            // p_traj_vis_->displayPolyTraj(executing_traj_);
-            // Display();    
+            p_traj_vis_->displayPolyTraj(executing_traj_);
+            Display();    
           }          
-      printf("\033[32m[TrajPlannerServer]MAKR 1 IS %lf ms.\n\033[0m",
-      (ros::Time::now().toSec()-current_time0)*1000);
+     
         ErrorType replanResult; 
-        double current_time1 = ros::Time::now().toSec();
         if (next_traj_ == nullptr) {
           replanResult = Replan();
           // printf("[TrajPlannerServer]Mission complete4.\n");
           // return;
         }
-        printf("\033[32m[TrajPlannerServer]REPLAN 1 IS %lf ms.\n\033[0m",
-        (ros::Time::now().toSec()-current_time1)*1000);
         if (next_traj_ !=nullptr && replanResult == kSuccess) {
           
         // ros::Duration(100.0).sleep();
-          double current_time2 = ros::Time::now().toSec();
+          
           if (CheckReplanTraj(next_traj_, 0, next_traj_->size() - 1)) //check if the new plan works, if not, delete it again
           {
             // if (executing_traj_ == nullptr || executing_traj_->size() - 1 < exe_traj_index_) 
@@ -252,14 +244,9 @@ namespace plan_utils
             next_traj_.release(); //do not use the generated trajectory
             // std::cout<<"check replan for new plan returns true!"<<std::endl;
             printf("\033[32m[PlanCycleCallback]check replan for new plan returns true! %lf ms.\n\033[0m");
-            printf("\033[32m[TrajPlannerServer]MAKR 2 IS %lf ms.\n\033[0m",
-              (ros::Time::now().toSec()-current_time0)*1000);
           }
           else
           {
-            printf("\033[32m[TrajPlannerServer]CHECKREPLAN IS %lf ms.\n\033[0m",
-            (ros::Time::now().toSec()-current_time2)*1000);
-            double current_time3 = ros::Time::now().toSec();
             m.lock();
             executing_traj_ = std::move(next_traj_);
             next_traj_.release();
@@ -267,12 +254,8 @@ namespace plan_utils
             final_traj_index_ = executing_traj_->size() - 1;
             exe_traj_index_ = 0; 
             m.unlock();            
-            // p_traj_vis_->displayPolyTraj(executing_traj_);
-            // Display();
-            printf("\033[32m[TrajPlannerServer]PART 3 IS %lf ms.\n\033[0m",
-              (ros::Time::now().toSec()-current_time3)*1000);
-            printf("\033[32m[TrajPlannerServer]MAKR 3 IS %lf ms.\n\033[0m",
-              (ros::Time::now().toSec()-current_time0)*1000);
+            p_traj_vis_->displayPolyTraj(executing_traj_);
+            Display();
           }
           return;
         }
@@ -291,8 +274,6 @@ namespace plan_utils
           }          
           p_traj_vis_->displayPolyTraj(executing_traj_);
           Display();
-          printf("\033[32m[TrajPlannerServer]MAKR 4 IS %lf ms.\n\033[0m",
-            (ros::Time::now().toSec()-current_time0)*1000);
         }
       }
 
