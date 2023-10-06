@@ -60,6 +60,7 @@ int current_leg_ = 0;
 double goal_radius_ = 1.5;
 double shortterm_dist_ = 3.0;
 nav_msgs::Path path_msg_;
+ros::Publisher people_marker_publisher_;
 
 std::vector<double> easting;
 std::vector<double> northing;
@@ -129,6 +130,7 @@ int main(int argc, char *argv[]) {
     ros::Timer timer = nh.createTimer(ros::Duration(1.0/3.0), TimerCallback);
     sgoal_pub_= nh.advertise<geometry_msgs::PoseStamped>("/shortterm_goal", 1);
     peopledens_pub_= nh.advertise<std_msgs::Float32>("/people_density", 1);
+    people_marker_publisher_ = nh.advertise<visualization_msgs::Marker>("/pp_markers", 1);
 
   	ros::spin();
 	ros::waitForShutdown();
@@ -141,6 +143,23 @@ int main(int argc, char *argv[]) {
 void peopleAngleCallback(const std_msgs::Float32MultiArray::ConstPtr& angle_msg)
 {
   angle_list_.clear();
+  visualization_msgs::Marker marker_msg;
+  marker_msg.ns = "people_lines";
+  marker_msg.id = 0;
+  marker_msg.type = visualization_msgs::Marker::LINE_LIST;
+  marker_msg.scale.x = 0.1;
+  marker_msg.color.r = 1.0;
+  marker_msg.color.g = 0.0;
+  marker_msg.color.b = 0.0;
+  marker_msg.color.a = 1.0;
+  marker_msg.header.frame_id = "base_link";
+  marker_msg.header.stamp = ros::Time::now();
+
+  geometry_msgs::Point p_start;
+  p_start.x = 0.0;
+  p_start.y = 0.0;
+  p_start.z = 0.0;
+
   for (int i=0; i<angle_msg->data.size()/2; i++)
   {
     Eigen::Vector2d peopleangle(-angle_msg->data[2*i], -angle_msg->data[2*i+1]);
@@ -148,7 +167,20 @@ void peopleAngleCallback(const std_msgs::Float32MultiArray::ConstPtr& angle_msg)
       peopleangle << -angle_msg->data[2*i+1], -angle_msg->data[2*i];
 
     angle_list_.push_back(peopleangle);
+
+    marker_msg.points.push_back(p_start);
+    geometry_msgs::Point p_end;
+    p_end.x = 10.0*cos(peopleangle(0)/180.0*M_PI);
+    p_end.y = 10.0*sin(peopleangle(0)/180.0*M_PI);
+    p_end.z = 0;
+    marker_msg.points.push_back(p_end);
+    marker_msg.points.push_back(p_start);
+    p_end.x = 10.0*cos(peopleangle(1)/180.0*M_PI);
+    p_end.y = 10.0*sin(peopleangle(1)/180.0*M_PI);
+    marker_msg.points.push_back(p_end);
   }
+
+  people_marker_publisher_.publish(marker_msg);
   last_people_angle_time_ = ros::Time::now();
 }
 
