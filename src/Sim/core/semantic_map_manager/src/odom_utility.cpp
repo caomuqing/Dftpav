@@ -60,7 +60,7 @@ int current_leg_ = 0;
 double goal_radius_ = 1.5;
 double shortterm_dist_ = 3.0;
 nav_msgs::Path path_msg_;
-ros::Publisher people_marker_publisher_;
+ros::Publisher people_marker_publisher_, line_marker_publisher_;
 
 std::vector<double> easting;
 std::vector<double> northing;
@@ -131,6 +131,7 @@ int main(int argc, char *argv[]) {
     sgoal_pub_= nh.advertise<geometry_msgs::PoseStamped>("/shortterm_goal", 1);
     peopledens_pub_= nh.advertise<std_msgs::Float32>("/people_density", 1);
     people_marker_publisher_ = nh.advertise<visualization_msgs::Marker>("/pp_markers", 1);
+    line_marker_publisher_ = nh.advertise<visualization_msgs::Marker>("/lineangle_markers", 1);
 
   	ros::spin();
 	ros::waitForShutdown();
@@ -147,9 +148,9 @@ void peopleAngleCallback(const std_msgs::Float32MultiArray::ConstPtr& angle_msg)
   marker_msg.ns = "people_lines";
   marker_msg.id = 0;
   marker_msg.type = visualization_msgs::Marker::LINE_LIST;
-  marker_msg.scale.x = 0.1;
-  marker_msg.color.r = 1.0;
-  marker_msg.color.g = 0.0;
+  marker_msg.scale.x = 0.05;
+  marker_msg.color.r = 0.0;
+  marker_msg.color.g = 1.0;
   marker_msg.color.b = 0.0;
   marker_msg.color.a = 1.0;
   marker_msg.header.frame_id = "base_link";
@@ -180,7 +181,7 @@ void peopleAngleCallback(const std_msgs::Float32MultiArray::ConstPtr& angle_msg)
     marker_msg.points.push_back(p_end);
   }
 
-  people_marker_publisher_.publish(marker_msg);
+  // people_marker_publisher_.publish(marker_msg);
   last_people_angle_time_ = ros::Time::now();
 }
 
@@ -295,13 +296,13 @@ void pubgoal_cb(const std_msgs::Bool::ConstPtr& msg)
 double calculateOverlapPercentage(double A, double B, double C, double D) 
 {
   double intersection = std::min(B, D) - std::max(A, C);
-  double larger_range = std::max(B-A, D-C);
+  double smaller_range = std::min(B-A, D-C);
   
   if (intersection <= 0) {
       return 0.0;
   }
   
-  return (double)intersection / larger_range * 100;
+  return (double)intersection / smaller_range * 100;
 }
 
 void lines_cb(const visualization_msgs::Marker::ConstPtr& msg)
@@ -314,6 +315,23 @@ void lines_cb(const visualization_msgs::Marker::ConstPtr& msg)
   }
   else if ((time_now-line_msg_->header.stamp).toSec()<0.05) return;
 
+    visualization_msgs::Marker marker_msg;
+    marker_msg.ns = "angles_lines";
+    marker_msg.id = 0;
+    marker_msg.type = visualization_msgs::Marker::LINE_LIST;
+    marker_msg.scale.x = 0.05;
+    marker_msg.color.r = 0.0;
+    marker_msg.color.g = 0.0;
+    marker_msg.color.b = 1.0;
+    marker_msg.color.a = 1.0;
+    marker_msg.header.frame_id = "base_link";
+    marker_msg.header.stamp = ros::Time::now();
+
+    geometry_msgs::Point p_start;
+    p_start.x = 0.0;
+    p_start.y = 0.0;
+    p_start.z = 0.0;
+    
   line_msg_ = msg;
 
   int num_segs = line_msg_->points.size()/2;
@@ -332,28 +350,48 @@ void lines_cb(const visualization_msgs::Marker::ConstPtr& msg)
     tf::Stamped<tf::Point> endpt_local(endpt, line_msg_->header.stamp, line_msg_->header.frame_id);
     tf::Stamped<tf::Point> endpt_target(endpt, line_msg_->header.stamp, line_msg_->header.frame_id);
 
+    double angle1 = atan(line_msg_->points[2*i].y/line_msg_->points[2*i].x)/M_PI*180.0;
+    double angle2 = atan(line_msg_->points[2*i+1].y/line_msg_->points[2*i+1].x)/M_PI*180.0;
+
+    if (angle1 > angle2)
+    {
+      double ang_tmp = angle1;
+      angle1 = angle2;
+      angle2 = ang_tmp;
+    }
+
+    if (abs(angle1)<45.0 && abs(angle2)<45.0)
+    {
+      marker_msg.points.push_back(p_start);
+      geometry_msgs::Point p_end;
+      p_end.x = 10.0*cos(angle1/180.0*M_PI);
+      p_end.y = 10.0*sin(angle1/180.0*M_PI);
+      p_end.z = 0;
+      marker_msg.points.push_back(p_end);
+      marker_msg.points.push_back(p_start);
+      p_end.x = 10.0*cos(angle2/180.0*M_PI);
+      p_end.y = 10.0*sin(angle2/180.0*M_PI);
+      marker_msg.points.push_back(p_end);      
+    }
     if ((ros::Time::now()-last_people_angle_time_).toSec()<0.3) //people check using image detection
     {
-      double angle1 = atan(line_msg_->points[2*i].y/line_msg_->points[2*i].x)/M_PI*180.0;
-      double angle2 = atan(line_msg_->points[2*i+1].y/line_msg_->points[2*i+1].x)/M_PI*180.0;
 
-      if (angle1 > angle2)
-      {
-        double ang_tmp = angle1;
-        angle1 = angle2;
-        angle2 = ang_tmp;
-      }
 
       bool is_people = false;
-      for (auto pp : angle_list_)
+      if (abs(angle1)<45.0 && abs(angle2)<45.0)
       {
-        if (calculateOverlapPercentage(angle1, angle2, pp(0), pp(1))>80.0)
+        for (auto pp : angle_list_)
         {
-          is_people = true;
-          break;
+          // ROS_INFO("[ODOM_UTILITY] angle1: %f, %f, %f, %f", angle1, angle2, pp(0), pp(1));
+          if (calculateOverlapPercentage(angle1, angle2, pp(0), pp(1))>75.0)
+          {
+            // ROS_INFO("[ODOM_UTILITY] removing static obstacles!!!!!!!!!");
+            is_people = true;
+            break;
+          }
         }
+        if (is_people) continue;
       }
-      if (is_people) continue;
     }
 
     try{
@@ -401,6 +439,7 @@ void lines_cb(const visualization_msgs::Marker::ConstPtr& msg)
   static_msg.obstacle_set.header.stamp = time_now;
   static_msg.obstacle_set.header.frame_id = target_frame_;
   arena_info_static_pub_.publish(static_msg);
+  // line_marker_publisher_.publish(marker_msg);
 
 }
 

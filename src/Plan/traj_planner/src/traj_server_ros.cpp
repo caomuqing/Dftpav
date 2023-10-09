@@ -110,7 +110,7 @@ namespace plan_utils
     using namespace std::chrono;
     system_clock::time_point current_start_time{system_clock::now()};
     system_clock::time_point next_start_time{current_start_time};
-    const milliseconds interval{static_cast<int>(10)}; // 50ms
+    const milliseconds interval{static_cast<int>(20)}; // 50ms
     while (true) {
       current_start_time = system_clock::now();
       next_start_time = current_start_time + interval;
@@ -407,7 +407,7 @@ namespace plan_utils
         // std::cout<<"state.angle: "<<state.angle<<"desired_state.angle "<<desired_state.angle<<std::endl;    
         // std::cout<<"yaw_rate_tmp "<<yaw_rate_tmp<<std::endl;    
         // std::cout<<"ratio is "<<state.velocity*tan(state.steer)/0.7/yaw_rate_tmp<<std::endl;    
-        double maxx = 1.0;
+        double maxx = 0.65;
         double vel_cmd = std::min(maxx, std::max(-maxx, state.velocity) + pos_error(0)*0.4); //hard limit
         if (scan_min_<0.4 || scan_min2_ <0.31) vel_cmd = std::min(0.0, vel_cmd);
         if ((ros::Time::now()-last_people_angle_time_).toSec()<0.5) //people check using image detection

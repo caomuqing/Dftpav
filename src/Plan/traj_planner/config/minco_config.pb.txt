@@ -19,7 +19,7 @@ map_cfg {
   s_back_len: 20.0
 
   dyn_bounds {
-    max_lon_vel: 0.8
+    max_lon_vel: 0.6
     min_lon_vel: 0.0
     max_lon_acc: 2.0
     max_lon_dec: -2.0
@@ -74,13 +74,13 @@ opt_cfg {
   half_margin: 0.15
 
   traj_piece_duration: 1.0
-  max_frontend_forward_vel: 0.8
+  max_frontend_forward_vel: 0.6
   max_frontend_forward_acc: 2.0
   max_frontend_backward_vel: 0.3
   max_frontend_backward_acc: 1.5
   max_frontend_cur: 1.0
   
-  max_forward_vel: 0.8
+  max_forward_vel: 0.6
   max_forward_acc: 2.0
   max_forward_cur: 1.0
 
