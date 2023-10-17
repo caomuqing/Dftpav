@@ -395,9 +395,9 @@ void lines_cb(const visualization_msgs::Marker::ConstPtr& msg)
     }
 
     try{
-      pListener->transformPoint(target_frame_, line_msg_->header.stamp,
+      pListener->transformPoint(target_frame_, ros::Time::now()-ros::Duration(0.05),
                           pt_local, line_msg_->header.frame_id, pt_target);
-      pListener->transformPoint(target_frame_, line_msg_->header.stamp,
+      pListener->transformPoint(target_frame_, ros::Time::now()-ros::Duration(0.05),
                           endpt_local, line_msg_->header.frame_id, endpt_target);
     }
     catch (tf::TransformException ex){

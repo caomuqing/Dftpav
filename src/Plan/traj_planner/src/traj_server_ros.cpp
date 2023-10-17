@@ -214,9 +214,10 @@ namespace plan_utils
       static int fsm_num = 0;
       // printf("[TrajPlannerServer]Mission complete2.\n");
       fsm_num++;
-      if (fsm_num > 1000000000||(CheckReplan()) || executing_traj_==nullptr) {
+      int new_goal = 0;
+      if (fsm_num > 1000000000||(CheckReplan(new_goal)) || executing_traj_==nullptr) {
         // printf("[TrajPlannerServer]Mission complete3.\n");
-        addStopTraj();
+        if (new_goal == 0) addStopTraj();
           if (executing_traj_ != nullptr) 
           {
             p_traj_vis_->displayPolyTraj(executing_traj_);
@@ -644,7 +645,7 @@ namespace plan_utils
   }
 
 
-  bool TrajPlannerServer::CheckReplan(){
+  bool TrajPlannerServer::CheckReplan(int& new_goal){
       //return 1: replan 0: not
       // std::cout<<"checking replan!! "<<std::endl;
       if(executing_traj_==nullptr) return true;
@@ -668,6 +669,7 @@ namespace plan_utils
       if((executing_traj_->back().end_time - cur_time)<2*totaltrajTime / 3.0) is_near = true;
       else is_near = false;
       if(is_near && !is_close_turnPoint&&(localTarget-end_pt_.head(2)).norm()>0.1){
+        new_goal = 1;
         return true;
       }
       //collision-check    

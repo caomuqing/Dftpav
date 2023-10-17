@@ -159,7 +159,7 @@ namespace plan_utils
     void ScanCallback(const sensor_msgs::LaserScan::ConstPtr& scan_msg);
     void peopleAngleCallback(const std_msgs::Float32MultiArray::ConstPtr& angle_msg);
 
-    bool CheckReplan();
+    bool CheckReplan(int& new_goal);
     bool CheckReplanTraj(std::unique_ptr<SingulTrajData>& executing_traj, int exe_traj_index, int final_traj_index);    
     Eigen::Vector4d end_pt_;
     ros::Subscriber parking_sub_;

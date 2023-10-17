@@ -266,7 +266,7 @@ ErrorType DataRenderer::FakeMapper(const double &time_stamp) {
     if (dx >= dist_thres || dy >= dist_thres) {
       it = obs_grids3_.erase(it);
       continue;
-    } else if (time_stamp - (*it)[2] > 10.0) {
+    } else if (time_stamp - (*it)[2] > 7.0) {
       it = obs_grids3_.erase(it);
       continue;      
     } else {
