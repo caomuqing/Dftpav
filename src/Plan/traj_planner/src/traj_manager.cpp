@@ -609,7 +609,9 @@ namespace plan_manage
     
     int flag_success = ploy_traj_opt_->OptimizeTrajectory(iniState_container, finState_container, 
                                                         waypoints_container,duration_container, 
-                                                        sfc_container,  singul_container,worldtime,0.0);
+                                                        sfc_container,  singul_container,
+                                                        pointA, pointB,
+                                                        worldtime,0.0);
     std::cout<<"optimize ended!\n";
    
 

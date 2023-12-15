@@ -50,6 +50,7 @@
 #include "tf/transform_datatypes.h"
 #include "vehicle_msgs/ControlSignal.h"
 #include "vehicle_msgs/encoder.h"
+#include "vehicle_msgs/ArenaInfoStatic.h"
 
 #include "visualization_msgs/Marker.h"
 #include "visualization_msgs/MarkerArray.h"
@@ -107,6 +108,9 @@ namespace plan_utils
     }
 
     double wrapToPi(double angle) ;
+    Eigen::Vector2d closestPointOnLine(const Eigen::Vector2d& A, const Eigen::Vector2d& B, const Eigen::Vector2d& C, double& dist);
+    bool isClockwise(const Eigen::Vector2d& A, const Eigen::Vector2d& B, const Eigen::Vector2d& C);
+    
     Config config_;
 
     TicToc time_profile_tool_;
@@ -126,7 +130,7 @@ namespace plan_utils
     /* ros related */
     ros::NodeHandle nh_;
     ros::Publisher ctrl_signal_pub_, executing_traj_vis_pub_,debug_pub;
-    ros::Publisher cmd_vel_pub_;
+    ros::Publisher cmd_vel_pub_, corridor_line_pub_;
     decimal_t work_rate_ = 20.0;
     int ego_id_;
     bool enable_urban_ = false;
@@ -158,16 +162,19 @@ namespace plan_utils
     void ParkingCallback(const geometry_msgs::PoseStamped &msg);
     void ScanCallback(const sensor_msgs::LaserScan::ConstPtr& scan_msg);
     void peopleAngleCallback(const std_msgs::Float32MultiArray::ConstPtr& angle_msg);
+    void ArenaInfoStaticCallback(const vehicle_msgs::ArenaInfoStatic::ConstPtr& obst_msg);
 
     bool CheckReplan(int& new_goal);
     bool CheckReplanTraj(std::unique_ptr<SingulTrajData>& executing_traj, int exe_traj_index, int final_traj_index);    
     Eigen::Vector4d end_pt_;
     ros::Subscriber parking_sub_;
-    ros::Subscriber scan_sub_, people_angle_sub_;
+    ros::Subscriber scan_sub_, people_angle_sub_, static_obst_sub_;
     double scan_min_ = 100.0;
     double scan_min2_ = 100.0;
     ros::Time last_people_angle_time_;
+    ros::Time last_static_obst_time_;
     std::vector<Eigen::Vector2d> angle_list_;
+    std::vector<Eigen::Vector2d> obst_list_;
 
     common::State ego_state;
     std::mutex m;

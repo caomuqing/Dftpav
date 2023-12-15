@@ -95,6 +95,7 @@ message OptCfg {
   required double max_frontend_forward_acc = 31;
   required double max_frontend_backward_vel = 32;
   required double max_frontend_backward_acc = 33;
+  required double wei_keep_left = 34;
 
 }
 

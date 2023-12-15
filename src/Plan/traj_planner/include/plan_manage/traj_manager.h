@@ -115,6 +115,10 @@ namespace plan_manage
     double traj_piece_duration_;
     int traj_res,dense_traj_res;
 
+    void set_pointAB(const Eigen::Vector2d& pointAin, const Eigen::Vector2d& pointBin){
+      pointA = pointAin;
+      pointB = pointBin;
+    }
 
 
 
@@ -241,8 +245,7 @@ namespace plan_manage
     bool have_parking_target = false;
     Eigen::Vector4d end_pt;
     /*vehicle param*/
-
-
+    Eigen::Vector2d pointA, pointB;
 
   };
 }  // namespace plan_manage

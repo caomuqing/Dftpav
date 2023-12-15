@@ -51,6 +51,7 @@ namespace plan_utils
     parking_sub_ = nh_.subscribe("/shortterm_goal", 1, &TrajPlannerServer::ParkingCallback, this);
     scan_sub_= nh_.subscribe("/scan", 1,  &TrajPlannerServer::ScanCallback, this);
     people_angle_sub_= nh_.subscribe("/angle_list", 1,  &TrajPlannerServer::peopleAngleCallback, this);
+    static_obst_sub_= nh_.subscribe("/arena_info_static", 1,  &TrajPlannerServer::ArenaInfoStaticCallback, this);
 
     if(!isparking){
       trajplan = std::bind(&plan_manage::TrajPlanner::RunOnce,p_planner_);
@@ -84,6 +85,8 @@ namespace plan_utils
     cmd_vel_pub_ = nh_.advertise<geometry_msgs::Twist>("/cmd_vel", 20);
     executing_traj_vis_pub_ = nh_.advertise<visualization_msgs::MarkerArray>(traj_topic, 1);
     debug_pub =  nh_.advertise<std_msgs::Bool>("/DEBUG", 1);
+    corridor_line_pub_ = nh_.advertise<visualization_msgs::Marker>("/corridor_line", 1);
+
     end_pt_.setZero();
 
 
@@ -605,7 +608,7 @@ namespace plan_utils
               // std::cout<<"surround_p is "<<surround_p<<std::endl;
               // std::cout<<"pos is "<<pos<<std::endl;
 
-              if ((surround_p - pos).norm()<0.4)
+              if ((surround_p - pos).norm()<0.6)
               { 
                 Eigen::Vector2d init_p = dymicObs[sur_id].traj.getPos(0.0);
                 Eigen::Vector2d init_dp = init_p - initpos;
@@ -648,6 +651,7 @@ namespace plan_utils
   bool TrajPlannerServer::CheckReplan(int& new_goal){
       //return 1: replan 0: not
       // std::cout<<"checking replan!! "<<std::endl;
+      Display();
       if(executing_traj_==nullptr) return true;
       bool is_near = false;
       bool is_collision = false;
@@ -717,7 +721,7 @@ namespace plan_utils
               // std::cout<<"surround_p is "<<surround_p<<std::endl;
               // std::cout<<"pos is "<<pos<<std::endl;
 
-              if ((surround_p - pos).norm()<0.4)
+              if ((surround_p - pos).norm()<0.6)
               { 
                 Eigen::Vector2d init_p = dymicObs[sur_id].traj.getPos(0.0);
                 Eigen::Vector2d init_dp = init_p - initpos;
@@ -756,7 +760,27 @@ namespace plan_utils
       // map_adapter_.CheckIfCollisionUsingPosAndYaw   
   }
 
+  Eigen::Vector2d TrajPlannerServer::closestPointOnLine(const Eigen::Vector2d& A, const Eigen::Vector2d& B, const Eigen::Vector2d& C, double& dist) {
+      Eigen::Vector2d AB = B - A;
+      Eigen::Vector2d AC = C - A;
 
+      double t = AC.dot(AB) / AB.dot(AB);
+      // t = fmax(0, fmin(1, t)); // Clamping t between 0 and 1 to ensure the point is on the line segment
+
+      Eigen::Vector2d closestPoint = A + t * AB;
+      dist = (closestPoint - C).norm();
+      return closestPoint;
+  }
+
+  bool TrajPlannerServer::isClockwise(const Eigen::Vector2d& A, const Eigen::Vector2d& B, const Eigen::Vector2d& C) {
+      Eigen::Vector2d AB = B - A;
+      Eigen::Vector2d AC = C - A;
+
+      double crossProduct = AB.x() * AC.y() - AB.y() * AC.x();
+
+      // Check the sign of the cross product
+      return crossProduct > 0;
+  }
 
   ErrorType TrajPlannerServer::Replan() {
     if (!is_replan_on_) return kWrongStatus;
@@ -767,6 +791,79 @@ namespace plan_utils
       return kWrongStatus;
     }
     desired_state.time_stamp = ros::Time::now().toSec()+Budget;
+
+    //add corridor line constraint
+    common::State current_state;
+
+    Eigen::Vector2d pointAA(1000.0, 1000.0);
+    Eigen::Vector2d pointBB(1000.0, 1000.0);    
+    if(map_adapter_.GetEgoState(&current_state)==kSuccess)
+    {    
+      Eigen::Vector2d pointC = current_state.vec_position.head(2);
+      Eigen::Vector2d CD = end_pt_.head(2) - pointC;
+
+      if (CD.norm() >2.0)
+      {
+        for (size_t i = 0; i < obst_list_.size()/2; i++)
+        {
+          Eigen::Vector2d pointA = obst_list_[2*i];
+          Eigen::Vector2d pointB = obst_list_[2*i + 1];
+          // if (pointA.y() > pointB.y()) 
+          // {
+          //   Eigen::Vector2d pointTmp = pointA;
+          //   pointA = pointB;
+          //   pointB = pointTmp;
+          // }
+          Eigen::Vector2d AB = pointB - pointA;
+          if (AB.norm() < 3.0) continue; //length of corridor check
+          
+          // pointA = pointA + AB *100.0;
+          // pointB = pointB - AB *200.0;
+          // the side check
+          if (!isClockwise(pointC, end_pt_.head(2), pointA) || !isClockwise(pointC, end_pt_.head(2), pointB)) continue;
+          double dist = 100.0;
+          Eigen::Vector2d closestpoint = closestPointOnLine(pointA, pointB, pointC, dist);
+          if (dist > 4.0) continue; //distance to the corridor side check
+          
+          double angle = acos(AB.dot(CD) / (AB.norm() * CD.norm()));
+          angle = angle * 180.0 / M_PI;
+          if (angle > 90.0) { angle = 180.0 - angle;}
+          if (fabs(angle) > 30.0) continue; //angle check
+
+          Eigen::Vector2d vec = pointC - closestpoint;
+          vec.normalize();
+          pointAA = pointA + vec* 1.5;
+          pointBB = pointB + vec* 1.5;
+          break;
+        }
+      }
+    }
+
+    if (true) //visualize the corridor
+    {
+      visualization_msgs::Marker marker_msg;
+      marker_msg.ns = "corridor";
+      marker_msg.id = 0;
+      marker_msg.type = visualization_msgs::Marker::LINE_LIST;
+      marker_msg.scale.x = 0.05;
+      marker_msg.color.r = 0.0;
+      marker_msg.color.g = 0.0;
+      marker_msg.color.b = 1.0;
+      marker_msg.color.a = 1.0;
+      marker_msg.header.frame_id = "map";
+      marker_msg.header.stamp = ros::Time::now();
+      geometry_msgs::Point p_start;
+      p_start.x = pointAA.x();
+      p_start.y = pointAA.y();
+      p_start.z = 0.0;
+      marker_msg.points.push_back(p_start);
+      p_start.x = pointBB.x();
+      p_start.y = pointBB.y();
+      marker_msg.points.push_back(p_start);      
+      corridor_line_pub_.publish(marker_msg);
+    }
+    p_planner_ -> set_pointAB(pointAA, pointBB);
+
     if(executing_traj_ ==nullptr){
       p_planner_->set_initial_state(desired_state);
       if (trajplan()!= kSuccess) {
@@ -895,6 +992,26 @@ namespace plan_utils
     have_parking_target_ = true;
     p_planner_->setParkingEnd(end_pt_);
   }
+
+
+void TrajPlannerServer::ArenaInfoStaticCallback(const vehicle_msgs::ArenaInfoStatic::ConstPtr& obst_msg)
+{
+  if ((ros::Time::now()-last_static_obst_time_).toSec() >0.2)
+  {
+    obst_list_.clear();
+
+    for (size_t i = 0; i < obst_msg->obstacle_set.obs_polygon.size(); i++)
+    {
+      Eigen::Vector2d pointA(obst_msg->obstacle_set.obs_polygon[i].polygon.points[0].x, obst_msg->obstacle_set.obs_polygon[i].polygon.points[0].y);
+      Eigen::Vector2d pointB(obst_msg->obstacle_set.obs_polygon[i].polygon.points[1].x, obst_msg->obstacle_set.obs_polygon[i].polygon.points[1].y);
+      obst_list_.push_back(pointA);
+      obst_list_.push_back(pointB);
+    }
+    last_static_obst_time_ = ros::Time::now();
+
+  }
+  
+}
 
 void TrajPlannerServer::peopleAngleCallback(const std_msgs::Float32MultiArray::ConstPtr& angle_msg)
 {

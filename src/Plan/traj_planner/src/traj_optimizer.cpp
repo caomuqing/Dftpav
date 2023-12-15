@@ -7,7 +7,9 @@ namespace plan_manage
   bool PolyTrajOptimizer::OptimizeTrajectory(
       const std::vector<Eigen::MatrixXd> &iniStates, const std::vector<Eigen::MatrixXd> &finStates,
       std::vector<Eigen::MatrixXd> &initInnerPts, const Eigen::VectorXd &initTs,
-      std::vector<std::vector<Eigen::MatrixXd>> &hPoly_container,std::vector<int> singuls,double now, double help_eps)
+      std::vector<std::vector<Eigen::MatrixXd>> &hPoly_container,std::vector<int> singuls,
+      Eigen::Vector2d pointAin, Eigen::Vector2d pointBin,
+      double now, double help_eps)
   {
     
     trajnum = initInnerPts.size();
@@ -22,6 +24,8 @@ namespace plan_manage
     jerkOpt_container.resize(trajnum);
     piece_num_container.resize(trajnum);
     double final_cost;
+    pointA = pointAin;
+    pointB = pointBin;
 
     if(initTs.size()!=trajnum){
       ROS_ERROR("initTs.size()!=trajnum");
@@ -640,6 +644,22 @@ namespace plan_manage
           costs(1) += dynamicObsGradCostP(omg,step,t + step * j,beta0,beta1,alpha,i,K,sigma,dsigma,ddsigma,ego_R,help_R,trajid,trajtime);
         }
         
+        if (pointA.x()<800.0 && pointB.x()<800.0)
+        {
+          double dist = 100.0;
+          Eigen::Vector2d closestPt = closestPointOnLine(pointA, pointB, sigma, dist);
+          costs(1) += wei_keep_left_ * dist * dist;
+
+          std::cout<<"dist is "<< dist<<std::endl;
+          std::cout<<"closestPt is "<< closestPt<<std::endl;
+
+          Eigen::Vector2d gradpp = -2.0 * (closestPt - sigma);
+          gradpp.normalize();
+          
+          Eigen::Matrix<double, 6, 2> gradCloseToLine = beta0 * gradpp.transpose();          
+          jerkOpt_container[trajid].get_gdC().block<6, 2>(i * 6, 0) += omg * step * wei_keep_left_ * gradCloseToLine;
+
+        }
         
         
         if (violaVel > 0.0)
@@ -1739,6 +1759,7 @@ namespace plan_manage
     past = cfg_.opt_cfg().lbfgs_past();
     delta = cfg_.opt_cfg().lbfgs_delta();
     mini_T = cfg_.opt_cfg().mini_t();
+    wei_keep_left_ = cfg_.opt_cfg().wei_keep_left();
 
 
 
@@ -2084,5 +2105,18 @@ namespace plan_manage
   // }
 
   void PolyTrajOptimizer::setDroneId(const int drone_id) { drone_id_ = drone_id; }
+
+  Eigen::Vector2d PolyTrajOptimizer::closestPointOnLine(const Eigen::Vector2d& A, const Eigen::Vector2d& B, 
+                                                        const Eigen::Vector2d& C, double& dist) {
+      Eigen::Vector2d AB = B - A;
+      Eigen::Vector2d AC = C - A;
+
+      double t = AC.dot(AB) / AB.dot(AB);
+      // t = fmax(0, fmin(1, t)); // Clamping t between 0 and 1 to ensure the point is on the line segment
+
+      Eigen::Vector2d closestPoint = A + t * AB;
+      dist = (closestPoint - C).norm();
+      return closestPoint;
+  }  
 
 } // namespace plan_manage

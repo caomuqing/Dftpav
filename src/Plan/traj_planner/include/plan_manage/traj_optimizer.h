@@ -52,7 +52,8 @@ namespace plan_manage
     double wei_sqrvar_;                      // squared variance weight
     double wei_time_;                        // time weight
     double surround_clearance_; // safe distance
-    
+    double wei_keep_left_;                         // obstacle weight
+
     double half_margin;                        // safe margin
     common::VehicleParam veh_param_;          
     double t_now_;
@@ -90,6 +91,8 @@ namespace plan_manage
     std::vector<Eigen::MatrixXd> debug_hPolys;
     std::vector<plan_utils::MinJerkOpt> jerkOpt_container;
     std::vector<int> piece_num_container;
+    Eigen::Vector2d pointA;
+    Eigen::Vector2d pointB;
 
   public:
     
@@ -117,7 +120,9 @@ namespace plan_manage
     /* main planning API */
     bool OptimizeTrajectory(const std::vector<Eigen::MatrixXd> &iniStates, const std::vector<Eigen::MatrixXd> &finStates,
                             std::vector<Eigen::MatrixXd> &initInnerPts, const Eigen::VectorXd &initTs,
-                            std::vector<std::vector<Eigen::MatrixXd>> &hPoly_container,std::vector<int> singuls,double now = ros::Time::now().toSec(),double help_eps = 1.0e-4);
+                            std::vector<std::vector<Eigen::MatrixXd>> &hPoly_container,std::vector<int> singuls,
+                            Eigen::Vector2d pointAin, Eigen::Vector2d pointBin,
+                            double now = ros::Time::now().toSec(),double help_eps = 1.0e-4);
 
 
     double log_sum_exp(double alpha, Eigen::VectorXd &all_dists, double &exp_sum);
@@ -241,7 +246,8 @@ namespace plan_manage
     void getBoundPts(Eigen::Vector2d &position, double angle, std::vector<Eigen::Vector2d> &BoundVertices);
     void positiveSmoothedL1(const double &x, double &f, double &df);
     void positiveSmoothedL3(const double &x, double &f, double &df);
-
+    Eigen::Vector2d closestPointOnLine(const Eigen::Vector2d& A, const Eigen::Vector2d& B, 
+                                       const Eigen::Vector2d& C, double& dist);
   public:
     typedef unique_ptr<PolyTrajOptimizer> Ptr;
 
