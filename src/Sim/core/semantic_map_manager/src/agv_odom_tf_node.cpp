@@ -19,7 +19,7 @@ double th=0;
 geometry_msgs::Quaternion quat_msg;
 int odom_recieved_flag=0;
 double main_freq=120;
-string odom_frame_name_="map";
+string odom_frame_name_="odom";
 string baselink_frame_name_="base_link";
 
 void OdomCallback(const nav_msgs::Odometry::ConstPtr& odom_msg)
@@ -37,8 +37,8 @@ int main(int argc, char **argv)
   ros::init(argc, argv, "agv_odomtf_node");
   ros::NodeHandle nh_;
   ros::NodeHandle private_nh_;
-  nh_.getParam("/agv_odomtf_node/odom_frame_name", odom_frame_name_);
-  nh_.getParam("/agv_odomtf_node/baselink_frame_name", baselink_frame_name_);
+  nh_.getParam("/odom_frame_name", odom_frame_name_);
+  nh_.getParam("/baselink_frame_name", baselink_frame_name_);
 
 
   odom_sub_=nh_.subscribe<nav_msgs::Odometry>("odom", 20, OdomCallback);

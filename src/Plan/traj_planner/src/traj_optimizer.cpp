@@ -650,8 +650,8 @@ namespace plan_manage
           Eigen::Vector2d closestPt = closestPointOnLine(pointA, pointB, sigma, dist);
           costs(1) += wei_keep_left_ * dist * dist;
 
-          std::cout<<"dist is "<< dist<<std::endl;
-          std::cout<<"closestPt is "<< closestPt<<std::endl;
+          // std::cout<<"dist is "<< dist<<std::endl;
+          // std::cout<<"closestPt is "<< closestPt<<std::endl;
 
           Eigen::Vector2d gradpp = -2.0 * (closestPt - sigma);
           gradpp.normalize();

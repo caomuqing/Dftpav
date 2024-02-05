@@ -815,10 +815,10 @@ namespace plan_utils
           //   pointB = pointTmp;
           // }
           Eigen::Vector2d AB = pointB - pointA;
-          if (AB.norm() < 3.0) continue; //length of corridor check
+          if (AB.norm() < 0.8) continue; //length of corridor check
           
-          // pointA = pointA + AB *100.0;
-          // pointB = pointB - AB *200.0;
+          pointB = pointA + AB *10.0;
+          pointA = pointB - AB *20.0;
           // the side check
           if (!isClockwise(pointC, end_pt_.head(2), pointA) || !isClockwise(pointC, end_pt_.head(2), pointB)) continue;
           double dist = 100.0;
@@ -832,8 +832,8 @@ namespace plan_utils
 
           Eigen::Vector2d vec = pointC - closestpoint;
           vec.normalize();
-          pointAA = pointA + vec* 1.5;
-          pointBB = pointB + vec* 1.5;
+          pointAA = pointA + vec* 1.0;
+          pointBB = pointB + vec* 1.0;
           break;
         }
       }
