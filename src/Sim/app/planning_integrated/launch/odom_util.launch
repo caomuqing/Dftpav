@@ -1,0 +1,16 @@
+<?xml version="1.0"?>
+ <launch>
+    <param name="/use_sim_time" value="true"/>
+
+  <arg name="playground" value = "ring_exp_v1.0" />
+
+  <!-- NOTE: the odom topic in odom_utility only need to provide vehicle velocity/twist, so wheel odom is prefered -->
+  <node pkg="semantic_map_manager" type="odom_utility" name="odom_utility_0" output="screen">
+    <rosparam file="$(find semantic_map_manager)/paths/path_spine.yaml"/>       
+    <rosparam file="$(find ai_agent_planner)/cfg/dynamicObs.yaml" command="load"/>
+    <param name="ego_id" type="int" value="0" />
+    <param name="vehicle_info_path" type="string" value="$(find playgrounds)/$(arg playground)/vehicle_set.json" />
+    <remap from="/odom" to="/ranger_base_node/odom"/>    
+  </node>
+
+ </launch>

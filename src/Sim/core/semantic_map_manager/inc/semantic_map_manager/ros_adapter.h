@@ -69,6 +69,7 @@ class RosAdapter {
 
   bool has_callback_binded_ = false;
   std::function<int(const SemanticMapManager&)> private_callback_fn_;
+  std::vector<std::vector<common::State>> sur_trajs_;
 };
 
 }  // namespace semantic_map_manager

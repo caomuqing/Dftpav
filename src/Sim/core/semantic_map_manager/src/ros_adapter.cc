@@ -31,8 +31,14 @@ void RosAdapter::Init() {
   }
 }
 void RosAdapter::DyObsCallback(const visualization_msgs::MarkerArray& msg){
-  std::vector<std::vector<common::State>> sur_trajs;
+  // std::vector<std::vector<common::State>> sur_trajs;
   int idx = 0;
+  double time_now = ros::Time::now().toSec();
+  while (sur_trajs_.size() >0 && time_now - sur_trajs_[0][0].time_stamp>3.0) //keep the people trajectory for 3 seconds in the buffer
+  {
+    sur_trajs_.erase(sur_trajs_.begin());
+  }
+  
   for(auto trajmsg : msg.markers){
     std::vector<common::State> traj;
     double cur_time = trajmsg.header.stamp.toSec();
@@ -54,10 +60,10 @@ void RosAdapter::DyObsCallback(const visualization_msgs::MarkerArray& msg){
       traj.push_back(state);
       kdx++;
     }
-    sur_trajs.push_back(traj);
+    sur_trajs_.push_back(traj);
     idx++;
   }
-  p_smm_->set_sur_points(sur_trajs);
+  p_smm_->set_sur_points(sur_trajs_);
 }
 // ! DEPRECATED (@lu.zhang)
 void RosAdapter::ArenaInfoCallback(

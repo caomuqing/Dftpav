@@ -20,7 +20,7 @@
         },
         "params": {
           "width": 0.5,
-          "length": 0.6,
+          "length": 0.9,
           "wheel_base": 0.6,
           "front_suspension": 0.2,
           "rear_suspension": 0.2,

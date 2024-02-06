@@ -21,10 +21,10 @@ map_cfg {
   dyn_bounds {
     max_lon_vel: 0.6
     min_lon_vel: 0.0
-    max_lon_acc: 2.0
+    max_lon_acc: 0.2
     max_lon_dec: -2.0
     max_lat_vel: 0.3
-    max_lat_acc: 1.25
+    max_lat_acc: 0.2
   }
 
   max_grids_along_time: 2
@@ -75,20 +75,20 @@ opt_cfg {
 
   traj_piece_duration: 1.0
   max_frontend_forward_vel: 0.6
-  max_frontend_forward_acc: 2.0
+  max_frontend_forward_acc: 0.2
   max_frontend_backward_vel: 0.3
-  max_frontend_backward_acc: 1.5
+  max_frontend_backward_acc: 0.2
   max_frontend_cur: 1.0
   
   max_forward_vel: 0.6
-  max_forward_acc: 2.0
+  max_forward_acc: 0.2
   max_forward_cur: 1.0
 
   max_backward_vel: 0.3
-  max_backward_acc: 1.5
+  max_backward_acc: 0.2
   max_backward_cur: 1.0
 
-  max_latacc: 1.5
+  max_latacc: 0.2
   max_phidot: 10000.0
 
 

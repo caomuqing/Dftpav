@@ -408,8 +408,8 @@ namespace plan_utils
         // std::cout<<"state.angle: "<<state.angle<<"desired_state.angle "<<desired_state.angle<<std::endl;    
         // std::cout<<"yaw_rate_tmp "<<yaw_rate_tmp<<std::endl;    
         // std::cout<<"ratio is "<<state.velocity*tan(state.steer)/0.7/yaw_rate_tmp<<std::endl;    
-        double maxx = 0.65;
-        double vel_cmd = std::min(maxx, std::max(-maxx, state.velocity) + pos_error(0)*0.4); //hard limit
+        double maxx = 0.65, minx = -0.30;
+        double vel_cmd = std::min(maxx, std::max(minx, state.velocity) + pos_error(0)*0.4); //hard limit
         if (scan_min_<0.4 || scan_min2_ <0.31) vel_cmd = std::min(0.0, vel_cmd);
         if ((ros::Time::now()-last_people_angle_time_).toSec()<0.5) //people check using image detection
         {
@@ -427,11 +427,17 @@ namespace plan_utils
               }
           }
         }
+
+        //yaw correction
         double max_yaw_rate_ = 30.0f/180.0f*3.14159;
         double yaw_rate_tmp_follow =wrapToPi(state.angle - desired_state.angle) * gain_heading_follow_;
         double yaw_rate_tmp = (vel_cmd>0.0? 1.0 : -1.0) * gain_heading_y_correction_ * pos_error(1) + yaw_rate_tmp_follow;
         if (yaw_rate_tmp>max_yaw_rate_) yaw_rate_tmp = max_yaw_rate_;
         else if (yaw_rate_tmp<-max_yaw_rate_) yaw_rate_tmp = -max_yaw_rate_;    
+
+        double yaw_cmd;
+        if (fabs(vel_cmd)<0.05) yaw_cmd = 0.0; //if longitudinal vel is small, disable turning
+        else yaw_cmd = state.velocity*(tan(state.steer)/0.7)+yaw_rate_tmp; //yaw depends on steering curvature
 
         geometry_msgs::Twist cmd_msg;
         cmd_msg.linear.x = vel_cmd;
@@ -440,7 +446,7 @@ namespace plan_utils
         cmd_msg.angular.x = 0.0;
         cmd_msg.angular.y = 0.0;
         // cmd_msg.angular.z = yaw_rate_tmp;
-        cmd_msg.angular.z = state.velocity*(tan(state.steer)/0.7)+yaw_rate_tmp;
+        cmd_msg.angular.z = yaw_cmd;
 
         cmd_vel_pub_.publish(cmd_msg);              
       }

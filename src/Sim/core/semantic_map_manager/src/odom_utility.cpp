@@ -61,6 +61,8 @@ double goal_radius_ = 1.5;
 double shortterm_dist_ = 3.0;
 nav_msgs::Path path_msg_;
 ros::Publisher people_marker_publisher_, line_marker_publisher_;
+std::vector<vehicle_msgs::PolygonObstacle> static_people_;
+int people_static_id_ = 0;
 
 std::vector<double> easting;
 std::vector<double> northing;
@@ -339,6 +341,12 @@ void lines_cb(const visualization_msgs::Marker::ConstPtr& msg)
   static_msg.header.stamp = time_now;
   static_msg.header.frame_id = target_frame_;
 
+  for (auto people_obst: static_people_)
+  {
+    static_msg.obstacle_set.obs_polygon.push_back(people_obst);
+  }
+  static_people_.clear();
+
   lines_list_.clear();
 
   for (int i = 0; i < num_segs; ++i)
@@ -395,9 +403,9 @@ void lines_cb(const visualization_msgs::Marker::ConstPtr& msg)
     }
 
     try{
-      pListener->transformPoint(target_frame_, ros::Time::now()-ros::Duration(0.05),
+      pListener->transformPoint(target_frame_, ros::Time::now()-ros::Duration(0.10),
                           pt_local, line_msg_->header.frame_id, pt_target);
-      pListener->transformPoint(target_frame_, ros::Time::now()-ros::Duration(0.05),
+      pListener->transformPoint(target_frame_, ros::Time::now()-ros::Duration(0.10),
                           endpt_local, line_msg_->header.frame_id, endpt_target);
     }
     catch (tf::TransformException ex){
@@ -445,6 +453,12 @@ void lines_cb(const visualization_msgs::Marker::ConstPtr& msg)
 
 void people_cb(const people_msgs::People::ConstPtr& msg)
 {
+  // remove old static people
+  while (static_people_.size()>0 && (ros::Time::now() -static_people_[0].header.stamp).toSec()>1.0)
+  {
+    static_people_.erase(static_people_.begin());
+  }
+  
   // visualization_msgs::Marker m;
   // m.type = visualization_msgs::Marker::ARROW;
   // m.action = visualization_msgs::Marker::DELETEALL;
@@ -485,12 +499,44 @@ void people_cb(const people_msgs::People::ConstPtr& msg)
     tf::Vector3 p_in_a(msg->people[i].position.x, msg->people[i].position.y, msg->people[i].position.z);
     tf::Vector3 v_in_a(msg->people[i].velocity.x, msg->people[i].velocity.y, msg->people[i].velocity.z);
     Eigen::Vector3d peoplepos(msg->people[i].position.x, msg->people[i].position.y, 0.0);
-    if ((peoplepos-pos_).norm()<3.0)
+    Eigen::Vector3d peoplevel(msg->people[i].velocity.x, msg->people[i].velocity.y, 0.0);
+
+
+    
+    if ((peoplepos-pos_).norm()<6.0)
     {
+      if (peoplevel.norm()<0.1)
+      {
+        vehicle_msgs::PolygonObstacle polygon_msg;
+        polygon_msg.header.stamp = ros::Time::now();
+        polygon_msg.header.frame_id = target_frame_;
+        polygon_msg.id = people_static_id_;
+        Eigen::Matrix<double,2,4> dimension;
+        dimension<< 0.1, 0.1, -0.1, -0.1,
+                    0.1, -0.1, 0.1, -0.1;
+
+        for (size_t j = 0; j < 5; j++)
+        {
+          geometry_msgs::Point32 p;
+          p.x = peoplepos(0) + dimension(0,j%4);
+          p.y = peoplepos(1) + dimension(1,j%4);
+          p.z = 0.0;
+          polygon_msg.polygon.points.push_back(p);
+        }
+        static_people_.push_back(polygon_msg);
+      }
+      people_static_id_++;
+      if (people_static_id_>1000)
+      {
+        people_static_id_ = 0;
+      }
+      
+
+      //filter those people too close to obstacles
       bool not_good = false;
       for (int j=0; j<lines_list_.size()/2; j++)
       {
-        if (closestDistance(lines_list_[2*j], lines_list_[2*j+1], peoplepos.head(2)) < 0.2) //filter those people too close to obstacles
+        if (closestDistance(lines_list_[2*j], lines_list_[2*j+1], peoplepos.head(2)) < 0.2) 
         {
           not_good = true;
           break;
@@ -518,7 +564,7 @@ void people_cb(const people_msgs::People::ConstPtr& msg)
     traj.scale.y = 0.1;
     traj.scale.z = 0.1;
     traj.header.frame_id = "map";
-    traj.header.stamp =ros::Time::now();
+    traj.header.stamp =ros::Time::now() - ros::Duration(1.0);
     geometry_msgs::Point point1;
     for(double t = 0.0; t<=pre_time; t += deltatime){
       point1.x = p_in_a.getX() + v_in_a.getX()*t;
@@ -653,7 +699,7 @@ void odom_cb(const nav_msgs::Odometry::ConstPtr& msg)
     try{
         // listener_.waitForTransform("/base_link", "/map", msg->header.stamp, ros::Duration(3.0));
 
-        pListener->lookupTransform("/map","/base_link", ros::Time::now()-ros::Duration(0.05), transform);
+        pListener->lookupTransform("/map","/base_link", ros::Time::now()-ros::Duration(0.1), transform);
             // std::cout << "transform exist\n";
     }
     catch (tf::TransformException ex){
