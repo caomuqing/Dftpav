@@ -40,7 +40,7 @@ void globalplan_cb(const nav_msgs::Path::ConstPtr& msg);
 
 std::string vehicle_set_path_;
 common::VehicleSet vehicle_set_;
-ros::Publisher arena_info_dynamic_pub_, surround_traj_pub, arena_info_static_pub_, goal_pub_, sgoal_pub_;
+ros::Publisher arena_info_dynamic_pub_, surround_traj_pub, arena_info_static_pub_, goal_pub_, sgoal_pub_, static_obst_pub;
 bool ParseVehicleSet(common::VehicleSet *p_vehicle_set);
 void odom_cb(const nav_msgs::Odometry::ConstPtr& msg);
 void people_cb(const people_msgs::People::ConstPtr& msg);
@@ -53,7 +53,7 @@ std::string people_frame_ = "base_link";
 ros::Publisher vis_pub_, peopledens_pub_;
 tf::TransformListener* pListener = NULL;
 double angularZ_ = 0.0;
-double pre_time = 2.0, deltatime = 0.5;
+double pre_time = 5.0, deltatime = 0.5;
 visualization_msgs::Marker::ConstPtr line_msg_;
 bool initialized_=false;
 int current_leg_ = 0;
@@ -127,6 +127,7 @@ int main(int argc, char *argv[]) {
     arena_info_static_pub_ =
       nh.advertise<vehicle_msgs::ArenaInfoStatic>("/arena_info_static", 10);
   	surround_traj_pub = nh.advertise<visualization_msgs::MarkerArray>("/vis/parking_surround_trajs", 10);
+    static_obst_pub = nh.advertise<visualization_msgs::MarkerArray>("/vis/static_obst", 10);
     vis_pub_ = nh.advertise<visualization_msgs::Marker>( "visualization_odom_util", 0 );
     goal_pub_= nh.advertise<geometry_msgs::PoseStamped>("/path_planning_simple/goal", 1);
     ros::Timer timer = nh.createTimer(ros::Duration(1.0/3.0), TimerCallback);
@@ -341,10 +342,51 @@ void lines_cb(const visualization_msgs::Marker::ConstPtr& msg)
   static_msg.header.stamp = time_now;
   static_msg.header.frame_id = target_frame_;
 
+  visualization_msgs::MarkerArray people_visualize;
+  visualization_msgs::Marker m;
+  m.type = visualization_msgs::Marker::ARROW;
+  m.action = visualization_msgs::Marker::DELETEALL;
+  m.id = 0;
+  m.scale.x = 0.02;
+  m.scale.y = 0.04;
+  m.scale.z = 1;
+  people_visualize.markers.push_back(m);
+
+  int ii = 1;
   for (auto people_obst: static_people_)
   {
     static_msg.obstacle_set.obs_polygon.push_back(people_obst);
+
+    visualization_msgs::Marker traj;
+    traj.action = visualization_msgs::Marker::ADD;
+    traj.id = ii++;
+    traj.type = visualization_msgs::Marker::LINE_STRIP;
+    traj.pose.orientation.w = 1.00;
+    traj.color.r = 0.00;
+    traj.color.g = 0.00;
+    traj.color.b = 0.00;
+    traj.color.a = 1.00;
+    traj.scale.x = 0.1;
+    traj.scale.y = 0.1;
+    traj.scale.z = 0.1;
+    traj.header.frame_id = "map";
+    traj.header.stamp = people_obst.header.stamp;
+    geometry_msgs::Point point1;
+    for(auto pt: people_obst.polygon.points){
+      point1.x = pt.x;
+      point1.y = pt.y;
+      point1.z = pt.z;
+
+      traj.points.push_back(point1);
+    }
+    point1.x = people_obst.polygon.points[0].x;
+    point1.y = people_obst.polygon.points[0].y;
+    point1.z = people_obst.polygon.points[0].z;
+    traj.points.push_back(point1);
+    people_visualize.markers.push_back(traj);
   }
+  static_obst_pub.publish(people_visualize);
+
   static_people_.clear();
 
   lines_list_.clear();
@@ -513,7 +555,7 @@ void people_cb(const people_msgs::People::ConstPtr& msg)
         polygon_msg.id = people_static_id_;
         Eigen::Matrix<double,2,4> dimension;
         dimension<< 0.1, 0.1, -0.1, -0.1,
-                    0.1, -0.1, 0.1, -0.1;
+                    0.1, -0.1, -0.1, 0.1;
 
         for (size_t j = 0; j < 5; j++)
         {
@@ -564,7 +606,7 @@ void people_cb(const people_msgs::People::ConstPtr& msg)
     traj.scale.y = 0.1;
     traj.scale.z = 0.1;
     traj.header.frame_id = "map";
-    traj.header.stamp =ros::Time::now() - ros::Duration(1.0);
+    traj.header.stamp =ros::Time::now();// + ros::Duration(1.0);
     geometry_msgs::Point point1;
     for(double t = 0.0; t<=pre_time; t += deltatime){
       point1.x = p_in_a.getX() + v_in_a.getX()*t;

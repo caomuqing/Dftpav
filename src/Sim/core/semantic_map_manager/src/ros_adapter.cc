@@ -34,11 +34,11 @@ void RosAdapter::DyObsCallback(const visualization_msgs::MarkerArray& msg){
   // std::vector<std::vector<common::State>> sur_trajs;
   int idx = 0;
   double time_now = ros::Time::now().toSec();
-  while (sur_trajs_.size() >0 && time_now - sur_trajs_[0][0].time_stamp>3.0) //keep the people trajectory for 3 seconds in the buffer
-  {
-    sur_trajs_.erase(sur_trajs_.begin());
-  }
-  
+  // while (sur_trajs_.size() >0 && time_now - sur_trajs_[0][0].time_stamp>3.0) //keep the people trajectory for 3 seconds in the buffer
+  // {
+  //   sur_trajs_.erase(sur_trajs_.begin());
+  // }
+  sur_trajs_.clear();
   for(auto trajmsg : msg.markers){
     std::vector<common::State> traj;
     double cur_time = trajmsg.header.stamp.toSec();

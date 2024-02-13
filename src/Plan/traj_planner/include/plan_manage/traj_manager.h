@@ -98,7 +98,8 @@ namespace plan_manage
     }
     void getSurrTraj(plan_utils::SurroundTrajData& surround_trajsOut) {surround_trajsOut = surround_trajs;}
     void updateSurrTraj();
-    
+    ErrorType UpdateObsGrids();
+
     void setParkingEnd(Eigen::Vector4d end_pt_){
       end_pt = end_pt_;
       have_parking_target = true;
@@ -207,7 +208,6 @@ namespace plan_manage
 
     void printLateralBehavior(LateralBehavior lateral_behavior);
 
-    ErrorType UpdateObsGrids();
     
     ErrorType getSikangConst(plan_utils::Trajectory &Traj,
                              Eigen::MatrixXd &innerPs,  

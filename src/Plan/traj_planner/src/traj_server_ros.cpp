@@ -216,7 +216,7 @@ namespace plan_utils
       fsm_num++;
       int new_goal = 0;
       if (fsm_num > 1000000000||(CheckReplan(new_goal)) || executing_traj_==nullptr) {
-        // printf("[TrajPlannerServer]Mission complete3.\n");
+
         if (new_goal == 0) addStopTraj();
           if (executing_traj_ != nullptr) 
           {
@@ -277,10 +277,14 @@ namespace plan_utils
           Display();
         }
       }
+      else{     
+        Display();    
+
+      }
 
     }
     else{
-      // (CheckReplanTraj(executing_traj_, exe_traj_index_, final_traj_index_));
+       
     }
   }
 
@@ -611,7 +615,7 @@ namespace plan_utils
               // std::cout<<"surround_p is "<<surround_p<<std::endl;
               // std::cout<<"pos is "<<pos<<std::endl;
 
-              if ((surround_p - pos).norm()<0.4)
+              if ((surround_p - pos).norm()<0.6)
               { 
                 Eigen::Vector2d init_p = dymicObs[sur_id].traj.getPos(0.0);
                 Eigen::Vector2d init_dp = init_p - initpos;
@@ -680,6 +684,7 @@ namespace plan_utils
       }
       //collision-check    
       p_planner_->updateSurrTraj();
+      p_planner_->UpdateObsGrids();
       plan_utils::SurroundTrajData dymicObs;
       p_planner_->getSurrTraj(dymicObs);  
       double tt = 0.0;
@@ -689,7 +694,7 @@ namespace plan_utils
       int i = exe_traj_index_;
       bool got_initpos = false;
       Eigen::Vector2d initpos;
-      while(i < executing_traj_->size() && tadd <3.0){
+      while(i < executing_traj_->size() && tadd <5.0){
 
           common::State fullstate;
           executing_traj_->at(i).traj.GetState(t0, &fullstate);
@@ -723,7 +728,7 @@ namespace plan_utils
               // std::cout<<"surround_p is "<<surround_p<<std::endl;
               // std::cout<<"pos is "<<pos<<std::endl;
 
-              if ((surround_p - pos).norm()<0.4)
+              if ((surround_p - pos).norm()<0.6)
               { 
                 Eigen::Vector2d init_p = dymicObs[sur_id].traj.getPos(0.0);
                 Eigen::Vector2d init_dp = init_p - initpos;

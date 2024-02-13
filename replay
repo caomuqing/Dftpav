@@ -3,12 +3,12 @@
 #export ROS_MASTER_URI=http://10.0.0.1:11311
 #export ROS_IP=10.0.0.1
 
-xterm -hold -fs 18 -e "source ~/.bashrc && source /home/iot/ws_navigation/devel/setup.bash && roslaunch slam2d odom_util.launch" & sleep 1
+xterm -hold -fs 18 -e "source ~/.bashrc && source /home/iot02/catkin_crowd_nav/devel/setup.bash && roslaunch planning_integrated odom_util.launch" & sleep 1
 
 
-xterm -hold -e "source ~/.bashrc && source /home/iot/ws_navigation/devel/setup.bash && roslaunch phy_simulator rviz.launch" & sleep 1
+xterm -hold -e "source ~/.bashrc && source /home/iot02/catkin_crowd_nav/devel/setup.bash && roslaunch phy_simulator rviz.launch" & sleep 1
 
-xterm -hold -e "source ~/.bashrc && source /home/iot/ws_navigation/devel/setup.bash &&  roslaunch planning_integrated park.launch" & sleep 2
+xterm -hold -e "source ~/.bashrc && source /home/iot02/catkin_crowd_nav/devel/setup.bash &&  roslaunch planning_integrated park.launch" & sleep 2
 
 #xterm -hold -e "source ~/.bashrc && source /home/iot/ws_navigation/devel/setup.bash &&  rosparam set /use_sim_time true" & sleep 2
 

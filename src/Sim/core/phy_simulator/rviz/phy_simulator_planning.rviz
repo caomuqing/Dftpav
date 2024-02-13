@@ -149,7 +149,7 @@ Visualization Manager:
           Marker Topic: /vis/agent_0/minco/poly_traj_wholebody
           Name: se2traj
           Namespaces:
-            {}
+            trajwholepub: true
           Queue Size: 100
           Value: true
       Enabled: true
@@ -264,7 +264,7 @@ Visualization Manager:
       Marker Topic: /park_0/cloud_point
       Name: Marker
       Namespaces:
-        {}
+        "": true
       Queue Size: 100
       Value: true
     - Align Bottom: false
@@ -386,6 +386,14 @@ Visualization Manager:
       Use Fixed Frame: true
       Use rainbow: true
       Value: false
+    - Class: rviz/MarkerArray
+      Enabled: true
+      Marker Topic: /vis/static_obst
+      Name: MarkerArray
+      Namespaces:
+        "": true
+      Queue Size: 100
+      Value: true
   Enabled: true
   Global Options:
     Background Color: 255; 255; 255
