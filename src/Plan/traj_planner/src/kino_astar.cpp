@@ -43,7 +43,7 @@ namespace path_searching
     frontend_map_itf_->CheckIfCollisionUsingPosAndYaw(vp_,start_state.head(3),&isocc);
     if(isocc){
       ROS_ERROR("KinoAstar: head is not free!");
-      return NO_PATH;
+      // return NO_PATH;
     }
     frontend_map_itf_->CheckIfCollisionUsingPosAndYaw(vp_,end_state.head(3),&isocc);
     if(isocc){

@@ -51,6 +51,7 @@ namespace plan_utils
     parking_sub_ = nh_.subscribe("/shortterm_goal", 1, &TrajPlannerServer::ParkingCallback, this);
     scan_sub_= nh_.subscribe("/scan", 1,  &TrajPlannerServer::ScanCallback, this);
     people_angle_sub_= nh_.subscribe("/angle_list", 1,  &TrajPlannerServer::peopleAngleCallback, this);
+    odom_sub_= nh_.subscribe("/odom", 1,  &TrajPlannerServer::odom_cb, this);
 
     if(!isparking){
       trajplan = std::bind(&plan_manage::TrajPlanner::RunOnce,p_planner_);
@@ -414,7 +415,7 @@ namespace plan_utils
         // std::cout<<"ratio is "<<state.velocity*tan(state.steer)/0.7/yaw_rate_tmp<<std::endl;    
         double maxx = 0.65, minx = -0.30;
         double vel_cmd = std::min(maxx, std::max(minx, state.velocity) + pos_error(0)*0.4); //hard limit
-        if (scan_min_<0.4 || scan_min2_ <0.31) vel_cmd = std::min(0.0, vel_cmd);
+        if (scan_min_<0.9 || scan_min2_ <0.65) vel_cmd = std::min(0.0, vel_cmd);
         if ((ros::Time::now()-last_people_angle_time_).toSec()<0.5) //people check using image detection
         {
           for (auto people : angle_list_)
@@ -433,7 +434,7 @@ namespace plan_utils
         }
 
         //yaw correction
-        double max_yaw_rate_ = 30.0f/180.0f*3.14159;
+        double max_yaw_rate_ = 40.0f/180.0f*3.14159;
         double yaw_rate_tmp_follow =wrapToPi(state.angle - desired_state.angle) * gain_heading_follow_;
         double yaw_rate_tmp = (vel_cmd>0.0? 1.0 : -1.0) * gain_heading_y_correction_ * pos_error(1) + yaw_rate_tmp_follow;
         if (yaw_rate_tmp>max_yaw_rate_) yaw_rate_tmp = max_yaw_rate_;
@@ -441,6 +442,7 @@ namespace plan_utils
 
         double yaw_cmd;
         if (fabs(vel_cmd)<0.05) yaw_cmd = 0.0; //if longitudinal vel is small, disable turning
+        // else if (fabs(wrapToPi(state.angle - desired_state.angle))>0.15)
         else yaw_cmd = state.velocity*(tan(state.steer)/0.7)+yaw_rate_tmp; //yaw depends on steering curvature
 
         geometry_msgs::Twist cmd_msg;
@@ -615,7 +617,7 @@ namespace plan_utils
               // std::cout<<"surround_p is "<<surround_p<<std::endl;
               // std::cout<<"pos is "<<pos<<std::endl;
 
-              if ((surround_p - pos).norm()<0.6)
+              if ((surround_p - pos).norm()<0.55)
               { 
                 Eigen::Vector2d init_p = dymicObs[sur_id].traj.getPos(0.0);
                 Eigen::Vector2d init_dp = init_p - initpos;
@@ -728,7 +730,7 @@ namespace plan_utils
               // std::cout<<"surround_p is "<<surround_p<<std::endl;
               // std::cout<<"pos is "<<pos<<std::endl;
 
-              if ((surround_p - pos).norm()<0.6)
+              if ((surround_p - pos).norm()<0.55)
               { 
                 Eigen::Vector2d init_p = dymicObs[sur_id].traj.getPos(0.0);
                 Eigen::Vector2d init_dp = init_p - initpos;
@@ -921,6 +923,12 @@ void TrajPlannerServer::peopleAngleCallback(const std_msgs::Float32MultiArray::C
   last_people_angle_time_ = ros::Time::now();
 }
 
+void TrajPlannerServer::odom_cb(const nav_msgs::Odometry::ConstPtr& msg)
+{
+  Eigen::Vector2d velll(msg->twist.twist.linear.x, msg->twist.twist.linear.y);
+  vell_ = velll.norm();
+}
+
 void TrajPlannerServer::ScanCallback(const sensor_msgs::LaserScan::ConstPtr& scan_msg)
 {
     int i;
@@ -932,13 +940,13 @@ void TrajPlannerServer::ScanCallback(const sensor_msgs::LaserScan::ConstPtr& sca
 
       double angle=((double)(i)*lsr_angle_inc)+lsr_angle_min;
 
-      if (fabs(angle)<0.15)
+      if (fabs(angle)<0.30)
       {
        if (scan_msg->ranges[i]<scan_min)
           scan_min=scan_msg->ranges[i];        
       }
 
-      if (fabs(angle)<1.1)
+      if (fabs(angle)<0.95)
       {
        if (scan_msg->ranges[i]<scan_min2)
           scan_min2=scan_msg->ranges[i];        

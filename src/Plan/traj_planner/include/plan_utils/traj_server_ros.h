@@ -158,16 +158,18 @@ namespace plan_utils
     void ParkingCallback(const geometry_msgs::PoseStamped &msg);
     void ScanCallback(const sensor_msgs::LaserScan::ConstPtr& scan_msg);
     void peopleAngleCallback(const std_msgs::Float32MultiArray::ConstPtr& angle_msg);
+    void odom_cb(const nav_msgs::Odometry::ConstPtr& msg);
 
     bool CheckReplan(int& new_goal);
     bool CheckReplanTraj(std::unique_ptr<SingulTrajData>& executing_traj, int exe_traj_index, int final_traj_index);    
     Eigen::Vector4d end_pt_;
     ros::Subscriber parking_sub_;
-    ros::Subscriber scan_sub_, people_angle_sub_;
+    ros::Subscriber scan_sub_, people_angle_sub_, odom_sub_;
     double scan_min_ = 100.0;
     double scan_min2_ = 100.0;
     ros::Time last_people_angle_time_;
     std::vector<Eigen::Vector2d> angle_list_;
+    double vell_ = 0.2;
 
     common::State ego_state;
     std::mutex m;

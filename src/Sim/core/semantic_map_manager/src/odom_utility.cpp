@@ -355,7 +355,7 @@ void lines_cb(const visualization_msgs::Marker::ConstPtr& msg)
   int ii = 1;
   for (auto people_obst: static_people_)
   {
-    static_msg.obstacle_set.obs_polygon.push_back(people_obst);
+    // static_msg.obstacle_set.obs_polygon.push_back(people_obst);
 
     visualization_msgs::Marker traj;
     traj.action = visualization_msgs::Marker::ADD;
@@ -765,7 +765,8 @@ void odom_cb(const nav_msgs::Odometry::ConstPtr& msg)
     double angvel = msg->twist.twist.angular.z;
     state1.steer = 0.0;//atan(0.3/(velocity_body(0)/angvel));
     state1.angle = tf::getYaw(transform.getRotation());
-    state1.velocity = msg->twist.twist.linear.x;
+    Eigen::Vector2d velll(msg->twist.twist.linear.x, msg->twist.twist.linear.y);
+    state1.velocity = velll.norm();
     vehicle_set_.vehicles[0].set_state(state1);
 
     vehicle_msgs::Encoder::GetRosVehicleSetFromVehicleSet(vehicle_set_, timestamp, frame_id,

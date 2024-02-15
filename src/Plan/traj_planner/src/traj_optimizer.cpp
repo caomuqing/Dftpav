@@ -1780,8 +1780,18 @@ namespace plan_manage
     // attention here! These vectors store one more of the vertexs! The vertexs are stored Clockwise！
     vec_le_.push_back(le_1); vec_le_.push_back(le_2); vec_le_.push_back(le_3); vec_le_.push_back(le_4); 
     vec_le_.push_back(le_1); // !!!!!
-    vec_lo_.push_back(lo_1); vec_lo_.push_back(lo_2); vec_lo_.push_back(lo_3); vec_lo_.push_back(lo_4); 
-    vec_lo_.push_back(lo_1); // !!!!!   
+
+    double radd = 0.3;
+    double edges = 10.0;
+    for (size_t i = 0; i < edges; i++)
+    {
+      Eigen::Vector2d lo_0(radd*(cos(3.14159*2.0/edges*(double)i)), radd*sin(3.14159*2.0/edges*(double)i));
+      vec_lo_.push_back(lo_0);
+    }
+    vec_lo_.push_back(Eigen::Vector2d(radd, 0.0));
+
+    // vec_lo_.push_back(lo_1); vec_lo_.push_back(lo_2); vec_lo_.push_back(lo_3); vec_lo_.push_back(lo_4); 
+    // vec_lo_.push_back(lo_1); // !!!!!   
 
     number_of_hyperplanes_of_ego_car_ = vec_le_.size() - 1;
     number_of_hyperplanes_of_surround_car_ = vec_lo_.size() - 1;         

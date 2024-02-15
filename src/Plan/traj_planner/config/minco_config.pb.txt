@@ -76,16 +76,16 @@ opt_cfg {
   traj_piece_duration: 1.0
   max_frontend_forward_vel: 0.6
   max_frontend_forward_acc: 0.2
-  max_frontend_backward_vel: 0.3
+  max_frontend_backward_vel: 0.15
   max_frontend_backward_acc: 0.2
   max_frontend_cur: 1.0
   
   max_forward_vel: 0.6
-  max_forward_acc: 0.2
+  max_forward_acc: 0.1
   max_forward_cur: 1.0
 
-  max_backward_vel: 0.3
-  max_backward_acc: 0.2
+  max_backward_vel: 0.15
+  max_backward_acc: 0.1
   max_backward_cur: 1.0
 
   max_latacc: 0.2

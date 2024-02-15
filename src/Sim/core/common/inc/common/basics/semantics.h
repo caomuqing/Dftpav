@@ -64,7 +64,7 @@ class VehicleParam {
 
  private:
   double width_ = 0.5;
-  double length_ = 0.9;
+  double length_ = 0.75;
   double wheel_base_ = 0.6;
   double front_suspension_ = 0.10;
   double rear_suspension_ = 0.10;
