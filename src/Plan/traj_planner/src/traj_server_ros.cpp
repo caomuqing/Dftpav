@@ -47,6 +47,7 @@ namespace plan_utils
     nh.param("isparking", isparking,true);
     p_planner_   = new plan_manage::TrajPlanner(nh, ego_id, enable_urban_);
     last_people_angle_time_ = ros::Time::now();
+    last_activate_rotation_time_ = ros::Time::now();
 
     parking_sub_ = nh_.subscribe("/shortterm_goal", 1, &TrajPlannerServer::ParkingCallback, this);
     scan_sub_= nh_.subscribe("/scan", 1,  &TrajPlannerServer::ScanCallback, this);
@@ -403,47 +404,62 @@ namespace plan_utils
       {
         ctrl_signal_pub_.publish(ctrl_msg);
 
-        Eigen::Matrix<double, 2, 2> rot;
-        double theta = -desired_state.angle;
-        rot << cos(theta), -sin(theta),
-                sin(theta), cos(theta);
-        Vecf<2> pos_error = rot * (state.vec_position - desired_state.vec_position);           
-        // std::cout<<"angle: "<<desired_state.angle/3.14*180<< " pos error x: "<<pos_error(0)<<" pos error y: "<<pos_error(1)<<std::endl;    
-
-        // std::cout<<"state.angle: "<<state.angle<<"desired_state.angle "<<desired_state.angle<<std::endl;    
-        // std::cout<<"yaw_rate_tmp "<<yaw_rate_tmp<<std::endl;    
-        // std::cout<<"ratio is "<<state.velocity*tan(state.steer)/0.7/yaw_rate_tmp<<std::endl;    
-        double maxx = 0.65, minx = -0.30;
-        double vel_cmd = std::min(maxx, std::max(minx, state.velocity) + pos_error(0)*0.4); //hard limit
-        if (scan_min_<0.9 || scan_min2_ <0.65) vel_cmd = std::min(0.0, vel_cmd);
-        if ((ros::Time::now()-last_people_angle_time_).toSec()<0.5) //people check using image detection
-        {
-          for (auto people : angle_list_)
-          {
-            double angle_range = 15; //degree
-            double angle_span = 35;
-            //people is near the center and spans a large angle
-            if (((people(0)> -angle_range && people(0)< angle_range)||
-                 (people(1)> -angle_range && people(1)< angle_range)) &&
-                  abs(people(0)-people(1))>angle_span)
-              {
-                vel_cmd = std::min(0.0, vel_cmd);
-                break;
-              }
-          }
-        }
-
-        //yaw correction
+        double vel_cmd = 0.0, yaw_cmd = 0.0;
         double max_yaw_rate_ = 40.0f/180.0f*3.14159;
-        double yaw_rate_tmp_follow =wrapToPi(state.angle - desired_state.angle) * gain_heading_follow_;
-        double yaw_rate_tmp = (vel_cmd>0.0? 1.0 : -1.0) * gain_heading_y_correction_ * pos_error(1) + yaw_rate_tmp_follow;
-        if (yaw_rate_tmp>max_yaw_rate_) yaw_rate_tmp = max_yaw_rate_;
-        else if (yaw_rate_tmp<-max_yaw_rate_) yaw_rate_tmp = -max_yaw_rate_;    
 
-        double yaw_cmd;
-        if (fabs(vel_cmd)<0.05) yaw_cmd = 0.0; //if longitudinal vel is small, disable turning
-        // else if (fabs(wrapToPi(state.angle - desired_state.angle))>0.15)
-        else yaw_cmd = state.velocity*(tan(state.steer)/0.7)+yaw_rate_tmp; //yaw depends on steering curvature
+        if ((ros::Time::now()-last_activate_rotation_time_).toSec()<4.0)
+        {
+          double yaw_rate_tmp =wrapToPi(end_pt_(2) - desired_state.angle) * gain_heading_follow_;
+
+          if (yaw_rate_tmp>max_yaw_rate_) yaw_rate_tmp = max_yaw_rate_;
+          else if (yaw_rate_tmp<-max_yaw_rate_) yaw_rate_tmp = -max_yaw_rate_;    
+          
+          yaw_cmd = yaw_rate_tmp;
+        }
+        else
+        {
+          Eigen::Matrix<double, 2, 2> rot;
+          double theta = -desired_state.angle;
+          rot << cos(theta), -sin(theta),
+                  sin(theta), cos(theta);
+          Vecf<2> pos_error = rot * (state.vec_position - desired_state.vec_position);           
+          // std::cout<<"angle: "<<desired_state.angle/3.14*180<< " pos error x: "<<pos_error(0)<<" pos error y: "<<pos_error(1)<<std::endl;    
+
+          // std::cout<<"state.angle: "<<state.angle<<"desired_state.angle "<<desired_state.angle<<std::endl;    
+          // std::cout<<"yaw_rate_tmp "<<yaw_rate_tmp<<std::endl;    
+          // std::cout<<"ratio is "<<state.velocity*tan(state.steer)/0.7/yaw_rate_tmp<<std::endl;    
+          double maxx = 0.65, minx = -0.30;
+          vel_cmd = std::min(maxx, std::max(minx, state.velocity) + pos_error(0)*0.4); //hard limit
+          if (scan_min_<0.9 || scan_min2_ <0.65) vel_cmd = std::min(0.0, vel_cmd);
+          if ((ros::Time::now()-last_people_angle_time_).toSec()<0.5) //people check using image detection
+          {
+            for (auto people : angle_list_)
+            {
+              double angle_range = 15; //degree
+              double angle_span = 35;
+              //people is near the center and spans a large angle
+              if (((people(0)> -angle_range && people(0)< angle_range)||
+                  (people(1)> -angle_range && people(1)< angle_range)) &&
+                    abs(people(0)-people(1))>angle_span)
+                {
+                  vel_cmd = std::min(0.0, vel_cmd);
+                  break;
+                }
+            }
+          }
+
+          //yaw correction
+          double yaw_rate_tmp_follow =wrapToPi(state.angle - desired_state.angle) * gain_heading_follow_;
+          double yaw_rate_tmp = (vel_cmd>0.0? 1.0 : -1.0) * gain_heading_y_correction_ * pos_error(1) + yaw_rate_tmp_follow;
+          if (yaw_rate_tmp>max_yaw_rate_) yaw_rate_tmp = max_yaw_rate_;
+          else if (yaw_rate_tmp<-max_yaw_rate_) yaw_rate_tmp = -max_yaw_rate_;    
+
+          yaw_cmd = state.velocity*(tan(state.steer)/0.7)+yaw_rate_tmp; //yaw depends on steering curvature
+
+          double min_turning_radius = 0.48;
+          if (fabs(vel_cmd/yaw_cmd)<min_turning_radius) yaw_cmd = (vel_cmd/yaw_cmd>0? 1.0:-1.0) * vel_cmd/min_turning_radius; //if longitudinal vel is small, disable turning
+          // else if (fabs(wrapToPi(state.angle - desired_state.angle))>0.15)
+        }
 
         geometry_msgs::Twist cmd_msg;
         cmd_msg.linear.x = vel_cmd;
@@ -907,6 +923,21 @@ namespace plan_utils
 
     have_parking_target_ = true;
     p_planner_->setParkingEnd(end_pt_);
+   
+    common::State state;
+    if(map_adapter_.GetEgoState(&state)==kSuccess)
+    {
+      Eigen::Matrix<double, 2, 2> rot;
+      double theta = -state.angle;
+      rot << cos(theta), -sin(theta),
+              sin(theta), cos(theta);
+      Vecf<2> pos_error = rot * (end_pt_.head(2) - state.vec_position);  
+      double angle_to_target = atan2(pos_error(1), pos_error(0));        
+      double angle_difference = wrapToPi(tf::getYaw(msg.pose.orientation) - state.angle);
+      if (fabs(angle_to_target)>0.6*M_PI && fabs(angle_difference)>0.6*M_PI)
+        last_activate_rotation_time_ = ros::Time::now();
+
+    }
   }
 
 void TrajPlannerServer::peopleAngleCallback(const std_msgs::Float32MultiArray::ConstPtr& angle_msg)

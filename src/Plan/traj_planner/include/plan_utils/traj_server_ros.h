@@ -168,6 +168,7 @@ namespace plan_utils
     double scan_min_ = 100.0;
     double scan_min2_ = 100.0;
     ros::Time last_people_angle_time_;
+    ros::Time last_activate_rotation_time_;
     std::vector<Eigen::Vector2d> angle_list_;
     double vell_ = 0.2;
 
