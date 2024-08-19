@@ -707,6 +707,7 @@ namespace plan_manage
           curcost+=omg * step * wei_feas_ * 10.0 * violaCurPenaR;
         }
 
+        double weight_scale_phidot = 1.0;
         // if(violaPhidotL > 0.0)
         // {
         //   positiveSmoothedL1(violaPhidotL, violaPhidotPenaL, violaPhidotPenaDL);
@@ -735,10 +736,10 @@ namespace plan_manage
         //                               +partial_phi_dot_over_partial_ddsigma.transpose() * dddsigma
         //                               +partial_phi_dot_over_partial_dddsigma.transpose() * ddddsigma)(0, 0);
 
-        //   jerkOpt_container[trajid].get_gdC().block<6, 2>(i * 6, 0) += omg * step * wei_feas_ * 1.0 * violaPhidotPenaDL * gradViolaPhidotLc;
-        //   gdTs[trajid](i) += omg * wei_feas_ * 1.0 * (violaPhidotPenaDL * gradViolaPhidotLt * step + violaPhidotPenaL / K);
-        //   costs(2) += omg * step * wei_feas_ * 1.0 * violaPhidotPenaL;
-        //   phidotcost+=omg * step * wei_feas_ * 1.0 * violaPhidotPenaL;
+        //   jerkOpt_container[trajid].get_gdC().block<6, 2>(i * 6, 0) += omg * step * wei_feas_ * weight_scale_phidot * violaPhidotPenaDL * gradViolaPhidotLc;
+        //   jerkOpt_container[trajid].get_gdT() += omg * wei_feas_ * weight_scale_phidot * (violaPhidotPenaDL * gradViolaPhidotLt * step + violaPhidotPenaL / K);
+        //   costs(2) += omg * step * wei_feas_ * weight_scale_phidot * violaPhidotPenaL;
+        //   phidotcost+=omg * step * wei_feas_ * weight_scale_phidot * violaPhidotPenaL;
         // }
 
         // if(violaPhidotR > 0.0)
@@ -769,10 +770,10 @@ namespace plan_manage
         //                               +partial_phi_dot_over_partial_ddsigma.transpose() * dddsigma
         //                               +partial_phi_dot_over_partial_dddsigma.transpose() * ddddsigma)(0, 0);
 
-        //   jerkOpt_container[trajid].get_gdC().block<6, 2>(i * 6, 0) += omg * step * wei_feas_ * 1.0 * violaPhidotPenaDR * gradViolaPhidotRc;
-        //   gdTs[trajid](i) += omg * wei_feas_ * 1.0 * (violaPhidotPenaDR * gradViolaPhidotRt * step + violaPhidotPenaR / K);
-        //   costs(2) += omg * step * wei_feas_ * 1.0 * violaPhidotPenaR;
-        //   phidotcost+=omg * step * wei_feas_ * 1.0 * violaPhidotPenaR;
+        //   jerkOpt_container[trajid].get_gdC().block<6, 2>(i * 6, 0) += omg * step * wei_feas_ * weight_scale_phidot * violaPhidotPenaDR * gradViolaPhidotRc;
+        //   jerkOpt_container[trajid].get_gdT() += omg * wei_feas_ * weight_scale_phidot * (violaPhidotPenaDR * gradViolaPhidotRt * step + violaPhidotPenaR / K);
+        //   costs(2) += omg * step * wei_feas_ * weight_scale_phidot * violaPhidotPenaR;
+        //   phidotcost+=omg * step * wei_feas_ * weight_scale_phidot * violaPhidotPenaR;
         // }
       }
       t += jerkOpt_container[trajid].getDt();
@@ -1781,11 +1782,11 @@ namespace plan_manage
     vec_le_.push_back(le_1); vec_le_.push_back(le_2); vec_le_.push_back(le_3); vec_le_.push_back(le_4); 
     vec_le_.push_back(le_1); // !!!!!
 
-    double radd = 0.3;
+    double radd = 0.5;
     double edges = 10.0;
     for (size_t i = 0; i < edges; i++)
     {
-      Eigen::Vector2d lo_0(radd*(cos(3.14159*2.0/edges*(double)i)), radd*sin(3.14159*2.0/edges*(double)i));
+      Eigen::Vector2d lo_0(radd*(cos(-3.14159*2.0/edges*(double)i)), radd*sin(-3.14159*2.0/edges*(double)i));
       vec_lo_.push_back(lo_0);
     }
     vec_lo_.push_back(Eigen::Vector2d(radd, 0.0));

@@ -428,7 +428,7 @@ namespace plan_utils
           // std::cout<<"state.angle: "<<state.angle<<"desired_state.angle "<<desired_state.angle<<std::endl;    
           // std::cout<<"yaw_rate_tmp "<<yaw_rate_tmp<<std::endl;    
           // std::cout<<"ratio is "<<state.velocity*tan(state.steer)/0.7/yaw_rate_tmp<<std::endl;    
-          double maxx = 0.65, minx = -0.30;
+          double maxx = 1.65, minx = -1.30;
           vel_cmd = std::min(maxx, std::max(minx, state.velocity) + pos_error(0)*0.4); //hard limit
           if (scan_min_<0.9 || scan_min2_ <0.65) vel_cmd = std::min(0.0, vel_cmd);
           if ((ros::Time::now()-last_people_angle_time_).toSec()<0.5) //people check using image detection
@@ -633,7 +633,7 @@ namespace plan_utils
               // std::cout<<"surround_p is "<<surround_p<<std::endl;
               // std::cout<<"pos is "<<pos<<std::endl;
 
-              if ((surround_p - pos).norm()<0.55)
+              if ((surround_p - pos).norm()<0.50)
               { 
                 Eigen::Vector2d init_p = dymicObs[sur_id].traj.getPos(0.0);
                 Eigen::Vector2d init_dp = init_p - initpos;
@@ -746,7 +746,7 @@ namespace plan_utils
               // std::cout<<"surround_p is "<<surround_p<<std::endl;
               // std::cout<<"pos is "<<pos<<std::endl;
 
-              if ((surround_p - pos).norm()<0.55)
+              if ((surround_p - pos).norm()<0.50)
               { 
                 Eigen::Vector2d init_p = dymicObs[sur_id].traj.getPos(0.0);
                 Eigen::Vector2d init_dp = init_p - initpos;
