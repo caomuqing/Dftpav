@@ -49,7 +49,7 @@ ErrorType DataRenderer::Render(const double &time_stamp,
   TicToc timer;
   FakeMapper(time_stamp); // obtain obs_grids
   
-  printf("[RayCasting]Time cost: %lf ms\n", timer.toc());
+  // printf("[RayCasting]Time cost: %lf ms\n", timer.toc());
 
   p_semantic_map_manager_->UpdateSemanticMap(
       time_stamp_, ego_vehicle_, whole_lane_net_, surrounding_lane_net_,
@@ -226,9 +226,10 @@ ErrorType DataRenderer::GetObstacleMap(
 
     // static_obs_list.push_back(poly_obs);
     // std::cout<<"\n";
+    cv::line(grid_mat, poly[0], poly[1], cv::Scalar(GridMap2D::OCCUPIED), 2);
 
   }
-  cv::fillPoly(grid_mat, polys, cv::Scalar(GridMap2D::OCCUPIED));
+  // cv::fillPoly(grid_mat, polys, cv::Scalar(GridMap2D::OCCUPIED));
   
   return kSuccess;
 }
@@ -266,7 +267,7 @@ ErrorType DataRenderer::FakeMapper(const double &time_stamp) {
     if (dx >= dist_thres || dy >= dist_thres) {
       it = obs_grids3_.erase(it);
       continue;
-    } else if (time_stamp - (*it)[2] > 7.0) {
+    } else if (time_stamp - (*it)[2] > 3.0) {
       it = obs_grids3_.erase(it);
       continue;      
     } else {

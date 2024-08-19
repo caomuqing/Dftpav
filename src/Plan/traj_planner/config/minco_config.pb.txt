@@ -54,7 +54,7 @@ map_cfg {
   traj_gear_switch_penalty: 15.0
   traj_steer_penalty: 0.5
   traj_steer_change_penalty: 0.5
-  map_resl: 0.2
+  map_resl: 0.20
   step_arc: 0.9
   checkl: 0.2
   onedv_res: 0.2
@@ -65,23 +65,23 @@ map_cfg {
 opt_cfg {
   traj_resolution: 2
   des_traj_resolution: 4
-  wei_sta_obs: 500.0
+  wei_sta_obs: 250.0
   wei_dyn_obs: 500.0
   wei_feas: 500.0
-  wei_sqrvar: 10.0
-  wei_time: 10.0
+  wei_sqrvar: 500.0
+  wei_time: 500.0
   dyn_obs_clearance: 0.2
   half_margin: 0.15
 
   traj_piece_duration: 1.0
-  max_frontend_forward_vel: 0.6
-  max_frontend_forward_acc: 0.2
+  max_frontend_forward_vel: 2.0
+  max_frontend_forward_acc: 3.0
   max_frontend_backward_vel: 0.15
   max_frontend_backward_acc: 0.2
   max_frontend_cur: 1.0
   
   max_forward_vel: 0.6
-  max_forward_acc: 0.1
+  max_forward_acc: 0.3
   max_forward_cur: 1.0
 
   max_backward_vel: 0.15

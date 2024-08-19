@@ -21,14 +21,32 @@ int odom_recieved_flag=0;
 double main_freq=120;
 string odom_frame_name_="map";
 string baselink_frame_name_="base_link";
+ros::Time time_last;
 
 void OdomCallback(const nav_msgs::Odometry::ConstPtr& odom_msg)
 {   
-
+  if (time_last == odom_msg->header.stamp) return;
    x=odom_msg->pose.pose.position.x;
    y=odom_msg->pose.pose.position.y;
    quat_msg=odom_msg->pose.pose.orientation;
-   odom_recieved_flag=1;
+
+  geometry_msgs::TransformStamped odom_trans;
+  odom_trans.header.stamp = odom_msg->header.stamp;
+  odom_trans.header.frame_id = odom_frame_name_;
+  odom_trans.child_frame_id = baselink_frame_name_;
+
+  odom_trans.transform.translation.x = x;
+  odom_trans.transform.translation.y = y;
+  odom_trans.transform.translation.z = 0.0;
+  odom_trans.transform.rotation = quat_msg;
+
+  //send the transform
+  tf::TransformBroadcaster odom_broadcaster_;
+  odom_broadcaster_.sendTransform(odom_trans);
+  time_last = odom_msg->header.stamp;
+  ROS_INFO("odom tf the delay is %f", (ros::Time::now()-odom_msg->header.stamp).toSec());
+
+   odom_recieved_flag=0;
 
 }
 
@@ -41,7 +59,7 @@ int main(int argc, char **argv)
   nh_.getParam("/agv_odomtf_node/baselink_frame_name", baselink_frame_name_);
 
 
-  odom_sub_=nh_.subscribe<nav_msgs::Odometry>("odom", 20, OdomCallback);
+  odom_sub_=nh_.subscribe<nav_msgs::Odometry>("odom", 200, OdomCallback);
   tf::TransformBroadcaster odom_broadcaster;
 
   
@@ -50,7 +68,7 @@ int main(int argc, char **argv)
   ros::Time current_time, last_time;
   current_time = ros::Time::now();
   last_time = ros::Time::now();
-
+  time_last = ros::Time::now();
   
   while(ros::ok())
     {

@@ -27,6 +27,7 @@
 #include <visualization_msgs/Marker.h>
 #include <std_msgs/Float32.h>
 #include "std_msgs/Float32MultiArray.h"
+#include "semantic_map_manager/utility.h"
 
 using namespace Eigen;
 using Json = nlohmann::json;
@@ -34,6 +35,7 @@ using Json = nlohmann::json;
 ros::Timer SetpointpubCBTimer_;
 void SetpointpubCB(const ros::TimerEvent& e);
 void lines_cb(const visualization_msgs::Marker::ConstPtr& msg);
+void lines_segment_cb(const visualization_msgs::Marker::ConstPtr& msg);
 void TimerCallback(const ros::TimerEvent&);
 void pubgoal_cb(const std_msgs::Bool::ConstPtr& msg);
 void globalplan_cb(const nav_msgs::Path::ConstPtr& msg);
@@ -43,10 +45,12 @@ common::VehicleSet vehicle_set_;
 ros::Publisher arena_info_dynamic_pub_, surround_traj_pub, arena_info_static_pub_, goal_pub_, sgoal_pub_, static_obst_pub;
 bool ParseVehicleSet(common::VehicleSet *p_vehicle_set);
 void odom_cb(const nav_msgs::Odometry::ConstPtr& msg);
+void fast_odom_cb(const nav_msgs::Odometry::ConstPtr& msg);
 void people_cb(const people_msgs::People::ConstPtr& msg);
 void peopleAngleCallback(const std_msgs::Float32MultiArray::ConstPtr& angle_msg);
 double calculateOverlapPercentage(double A, double B, double C, double D);
 double closestDistance(Eigen::Vector2d A, Eigen::Vector2d B, Eigen::Vector2d C); 
+bool findClosestOdom(ros::Time stamp, nav_msgs::Odometry& odom);
 
 std::string target_frame_ = "/map";
 std::string people_frame_ = "base_link";
@@ -54,11 +58,11 @@ ros::Publisher vis_pub_, peopledens_pub_;
 tf::TransformListener* pListener = NULL;
 double angularZ_ = 0.0;
 double pre_time = 5.0, deltatime = 0.5;
-visualization_msgs::Marker::ConstPtr line_msg_;
+visualization_msgs::Marker::ConstPtr line_msg_, line_segment_msg_;
 bool initialized_=false;
 int current_leg_ = 0;
 double goal_radius_ = 1.5;
-double shortterm_dist_ = 3.0;
+double shortterm_dist_ = 6.0;
 nav_msgs::Path path_msg_;
 ros::Publisher people_marker_publisher_, line_marker_publisher_;
 std::vector<vehicle_msgs::PolygonObstacle> static_people_;
@@ -78,7 +82,11 @@ tracking_state tstate_ = tIDLE;
 int tracking_leg_ = 0;
 ros::Time last_people_angle_time_;
 std::vector<Eigen::Vector2d> angle_list_;
-std::vector<Eigen::Vector2d> lines_list_;
+std::vector<Eigen::Vector2d> lines_list_, lines_segment_list_;
+ros::Time lines_time_, line_time_;
+std::deque<nav_msgs::Odometry> odom_deque;
+int odom_save_size_ = 600;
+double angular_z = 0.0;
 
 int main(int argc, char *argv[]) {
 	// initialize ROS
@@ -116,8 +124,11 @@ int main(int argc, char *argv[]) {
 
   	SetpointpubCBTimer_ = nh.createTimer(ros::Duration(0.1), SetpointpubCB);  
   	ros::Subscriber odom_sub = nh.subscribe<nav_msgs::Odometry>("/odom", 10, odom_cb);
+  	ros::Subscriber fast_odom_sub = nh.subscribe<nav_msgs::Odometry>("/fast_odom", 10, fast_odom_cb);
     ros::Subscriber people_sub = nh.subscribe<people_msgs::People>("/people", 10, people_cb);
     ros::Subscriber lines_sub = nh.subscribe<visualization_msgs::Marker>("/line_markers", 10, lines_cb);
+    ros::Subscriber lines_segment_sub = nh.subscribe<visualization_msgs::Marker>("/line_markers_segment", 10, lines_segment_cb);
+
     ros::Subscriber pubgoal_sub = nh.subscribe<std_msgs::Bool>("/pub_goal", 10, pubgoal_cb);
     ros::Subscriber globalplan_sub = nh.subscribe<nav_msgs::Path>("/path_planning_node/GlobalPlanner/plan", 10, globalplan_cb);
     ros::Subscriber people_angle_sub_= nh.subscribe("/angle_list", 1, peopleAngleCallback);
@@ -202,7 +213,7 @@ void globalplan_cb(const nav_msgs::Path::ConstPtr& msg)
     Eigen::Vector3d endpos(path_msg_.poses[i].pose.position.x,
                            path_msg_.poses[i].pose.position.y,
                            0.0);  
-    if ((startpos - endpos).norm() > shortterm_dist_)
+    if ((startpos - endpos).norm() > 3.0)
     {
       break;
     }
@@ -308,6 +319,115 @@ double calculateOverlapPercentage(double A, double B, double C, double D)
   return (double)intersection / smaller_range * 100;
 }
 
+void lines_segment_cb(const visualization_msgs::Marker::ConstPtr& msg)
+{
+    // when angular speed is large, the obstacles may be wrong
+  if (fabs(angularZ_)>0.3) return;
+
+  ros::Time time_now = ros::Time::now();
+  if (!initialized_)
+  {
+    initialized_ = true;
+    line_segment_msg_ = msg;
+    line_time_ = msg->header.stamp;
+  }
+  else if ((time_now-line_time_).toSec()<0.05) return;
+  line_time_ = msg->header.stamp;
+
+    geometry_msgs::Point p_start;
+    p_start.x = 0.0;
+    p_start.y = 0.0;
+    p_start.z = 0.0;
+    
+  line_segment_msg_ = msg;
+
+  int num_segs = line_segment_msg_->points.size()/2;
+  if (num_segs==0) return;
+  vehicle_msgs::ArenaInfoStatic static_msg;
+  static_msg.header.stamp = time_now;
+  static_msg.header.frame_id = target_frame_;
+
+  lines_segment_list_.clear();
+  // ROS_INFO("[ODOM_UTILITY] line SEGMENT MSG delay is %f",(ros::Time::now()-line_segment_msg_->header.stamp).toSec());
+  // ROS_INFO("[ODOM_UTILITY] line SEGMENT MSG delay is %f",(ros::Time::now()-line_segment_msg_->header.stamp).toSec());
+  // ROS_INFO("[ODOM_UTILITY] line SEGMENT MSG delay is %f",(ros::Time::now()-line_segment_msg_->header.stamp).toSec());
+  // ROS_INFO("[ODOM_UTILITY] line SEGMENT MSG delay is %f",(ros::Time::now()-line_segment_msg_->header.stamp).toSec());
+  nav_msgs::Odometry _odom_msg;
+  if (!findClosestOdom(line_segment_msg_->header.stamp, _odom_msg)) return;
+  myTf<double> tf_W_B(_odom_msg);
+
+  for (int i = 0; i < num_segs; ++i)
+  {
+    tf::Vector3 startpt(line_segment_msg_->points[2*i].x, line_segment_msg_->points[2*i].y, 0.0);
+    tf::Vector3 endpt(line_segment_msg_->points[2*i+1].x, line_segment_msg_->points[2*i+1].y, 0.0);
+    tf::Stamped<tf::Point> pt_local(startpt, line_segment_msg_->header.stamp, line_segment_msg_->header.frame_id);
+    tf::Stamped<tf::Point> pt_target(startpt, line_segment_msg_->header.stamp, line_segment_msg_->header.frame_id);
+    tf::Stamped<tf::Point> endpt_local(endpt, line_segment_msg_->header.stamp, line_segment_msg_->header.frame_id);
+    tf::Stamped<tf::Point> endpt_target(endpt, line_segment_msg_->header.stamp, line_segment_msg_->header.frame_id);
+    Vector3d p_B_local(line_segment_msg_->points[2*i].x, line_segment_msg_->points[2*i].y, 0.0);
+    Vector3d p_B_target(line_segment_msg_->points[2*i+1].x, line_segment_msg_->points[2*i+1].y, 0.0);
+
+    double angle1 = atan(line_segment_msg_->points[2*i].y/line_segment_msg_->points[2*i].x)/M_PI*180.0;
+    double angle2 = atan(line_segment_msg_->points[2*i+1].y/line_segment_msg_->points[2*i+1].x)/M_PI*180.0;
+
+    if (angle1 > angle2)
+    {
+      double ang_tmp = angle1;
+      angle1 = angle2;
+      angle2 = ang_tmp;
+    }
+
+    if ((ros::Time::now()-last_people_angle_time_).toSec()<0.3) //people check using image detection
+    {
+
+
+      bool is_people = false;
+      if (abs(angle1)<45.0 && abs(angle2)<45.0)
+      {
+        for (auto pp : angle_list_)
+        {
+          // ROS_INFO("[ODOM_UTILITY] angle1: %f, %f, %f, %f", angle1, angle2, pp(0), pp(1));
+          if (calculateOverlapPercentage(angle1, angle2, pp(0), pp(1))>75.0)
+          {
+            // ROS_INFO("[ODOM_UTILITY] removing static obstacles!!!!!!!!!");
+            is_people = true;
+            break;
+          }
+        }
+        // if (is_people) continue;
+      }
+    }
+
+    // try{
+    //   pListener->transformPoint(target_frame_, line_segment_msg_->header.stamp,
+    //                       pt_local, line_segment_msg_->header.frame_id, pt_target);
+    //   pListener->transformPoint(target_frame_, line_segment_msg_->header.stamp,
+    //                       endpt_local, line_segment_msg_->header.frame_id, endpt_target);
+    // }
+    // catch (tf::TransformException ex){
+    //     // ROS_ERROR("%s",ex.what());
+    //     // ros::Duration(1.0).sleep();
+    //     return;
+    //  }
+
+    Vector3d p_W_local = tf_W_B * p_B_local;
+    Vector3d p_W_target= tf_W_B * p_B_target;
+
+    // Eigen::Vector2d A(pt_target.getX(), pt_target.getY());
+    // Eigen::Vector2d B(endpt_target.getX(), endpt_target.getY());
+    Eigen::Vector2d A = p_W_local.head(2);
+    Eigen::Vector2d B = p_W_target.head(2);
+
+    lines_segment_list_.push_back(A);
+    lines_segment_list_.push_back(B);
+
+    if (closestDistance(A, B, pos_.head(2)) > 7.0) continue; // if the line is too far, dun publish it
+    // but the line is still used to filter human detections
+
+  }
+
+}
+
 void lines_cb(const visualization_msgs::Marker::ConstPtr& msg)
 {
   ros::Time time_now = ros::Time::now();
@@ -315,8 +435,15 @@ void lines_cb(const visualization_msgs::Marker::ConstPtr& msg)
   {
     initialized_ = true;
     line_msg_ = msg;
+    lines_time_ = msg->header.stamp;
   }
-  else if ((time_now-line_msg_->header.stamp).toSec()<0.05) return;
+  else if ((time_now-lines_time_).toSec()<0.05) return;
+
+  //when angular speed is large, the obstacles may be wrong
+  if (fabs(angularZ_)>0.3) return;
+
+  
+  lines_time_ = msg->header.stamp;
 
     visualization_msgs::Marker marker_msg;
     marker_msg.ns = "angles_lines";
@@ -391,6 +518,14 @@ void lines_cb(const visualization_msgs::Marker::ConstPtr& msg)
 
   lines_list_.clear();
 
+  // ROS_INFO("[ODOM_UTILITY] line msg delay is %f",(ros::Time::now()-line_msg_->header.stamp).toSec());
+  // ROS_INFO("[ODOM_UTILITY] line msg delay is %f",(ros::Time::now()-line_msg_->header.stamp).toSec());
+  // ROS_INFO("[ODOM_UTILITY] line msg delay is %f",(ros::Time::now()-line_msg_->header.stamp).toSec());
+  // ROS_INFO("[ODOM_UTILITY] line msg delay is %f",(ros::Time::now()-line_msg_->header.stamp).toSec());
+  nav_msgs::Odometry _odom_msg;
+  if (!findClosestOdom(line_msg_->header.stamp, _odom_msg)) return;
+  myTf<double> tf_W_B(_odom_msg);
+
   for (int i = 0; i < num_segs; ++i)
   {
     tf::Vector3 startpt(line_msg_->points[2*i].x, line_msg_->points[2*i].y, 0.0);
@@ -399,6 +534,8 @@ void lines_cb(const visualization_msgs::Marker::ConstPtr& msg)
     tf::Stamped<tf::Point> pt_target(startpt, line_msg_->header.stamp, line_msg_->header.frame_id);
     tf::Stamped<tf::Point> endpt_local(endpt, line_msg_->header.stamp, line_msg_->header.frame_id);
     tf::Stamped<tf::Point> endpt_target(endpt, line_msg_->header.stamp, line_msg_->header.frame_id);
+    Vector3d p_B_local(line_msg_->points[2*i].x, line_msg_->points[2*i].y, 0.0);
+    Vector3d p_B_target(line_msg_->points[2*i+1].x, line_msg_->points[2*i+1].y, 0.0);
 
     double angle1 = atan(line_msg_->points[2*i].y/line_msg_->points[2*i].x)/M_PI*180.0;
     double angle2 = atan(line_msg_->points[2*i+1].y/line_msg_->points[2*i+1].x)/M_PI*180.0;
@@ -440,25 +577,29 @@ void lines_cb(const visualization_msgs::Marker::ConstPtr& msg)
             break;
           }
         }
-        if (is_people) continue;
+        // if (is_people) continue;
       }
     }
 
-    try{
-      pListener->transformPoint(target_frame_, ros::Time::now()-ros::Duration(0.10),
-                          pt_local, line_msg_->header.frame_id, pt_target);
-      pListener->transformPoint(target_frame_, ros::Time::now()-ros::Duration(0.10),
-                          endpt_local, line_msg_->header.frame_id, endpt_target);
-    }
-    catch (tf::TransformException ex){
-        // ROS_ERROR("%s",ex.what());
-        // ros::Duration(1.0).sleep();
-        return;
-     }
+    // try{
+    //   pListener->transformPoint(target_frame_, line_msg_->header.stamp,
+    //                       pt_local, line_msg_->header.frame_id, pt_target);
+    //   pListener->transformPoint(target_frame_, line_msg_->header.stamp,
+    //                       endpt_local, line_msg_->header.frame_id, endpt_target);
+    // }
+    // catch (tf::TransformException ex){
+    //     // ROS_ERROR("%s",ex.what());
+    //     // ros::Duration(1.0).sleep();
+    //     return;
+    //  }
+    Vector3d p_W_local = tf_W_B * p_B_local;
+    Vector3d p_W_target= tf_W_B * p_B_target;
 
-    Eigen::Vector2d A(pt_target.getX(), pt_target.getY());
-    Eigen::Vector2d B(endpt_target.getX(), endpt_target.getY());
-    
+    // Eigen::Vector2d A(pt_target.getX(), pt_target.getY());
+    // Eigen::Vector2d B(endpt_target.getX(), endpt_target.getY());
+    Eigen::Vector2d A = p_W_local.head(2);
+    Eigen::Vector2d B = p_W_target.head(2);
+
     lines_list_.push_back(A);
     lines_list_.push_back(B);
 
@@ -470,14 +611,20 @@ void lines_cb(const visualization_msgs::Marker::ConstPtr& msg)
     polygon_msg.header.frame_id = target_frame_;
     polygon_msg.id = i;
     geometry_msgs::Point32 p;
-    p.x = pt_target.getX();
-    p.y = pt_target.getY();
-    p.z = pt_target.getZ();
+    // p.x = pt_target.getX();
+    // p.y = pt_target.getY();
+    // p.z = pt_target.getZ();
+    p.x = p_W_local(0);
+    p.y = p_W_local(1);
+    p.z = p_W_local(2);
 
     geometry_msgs::Point32 p1;
-    p1.x = endpt_target.getX();
-    p1.y = endpt_target.getY();
-    p1.z = endpt_target.getZ();
+    // p1.x = endpt_target.getX();
+    // p1.y = endpt_target.getY();
+    // p1.z = endpt_target.getZ();
+    p1.x = p_W_target(0);
+    p1.y = p_W_target(1);
+    p1.z = p_W_target(2);
 
     polygon_msg.polygon.points.push_back(p);
     polygon_msg.polygon.points.push_back(p1);
@@ -485,11 +632,34 @@ void lines_cb(const visualization_msgs::Marker::ConstPtr& msg)
     static_msg.obstacle_set.obs_polygon.push_back(polygon_msg);
 
   }
+  std::vector<Eigen::Vector2d> lines_from_image_tmp = lines_segment_list_;
+  for (size_t i = 0; i < lines_from_image_tmp.size()/2; i++)
+  {
+    vehicle_msgs::PolygonObstacle polygon_msg;
+    polygon_msg.header.stamp = time_now;
+    polygon_msg.header.frame_id = target_frame_;
+    polygon_msg.id = i+20;
+    geometry_msgs::Point32 p;
+    p.x = lines_from_image_tmp[2*i](0);
+    p.y = lines_from_image_tmp[2*i](1);
+    p.z = 0.0;
+
+    geometry_msgs::Point32 p1;
+    p1.x = lines_from_image_tmp[2*i+1](0);
+    p1.y = lines_from_image_tmp[2*i+1](1);
+    p1.z = 0.0;
+
+    polygon_msg.polygon.points.push_back(p);
+    polygon_msg.polygon.points.push_back(p1);
+    polygon_msg.polygon.points.push_back(p);
+    static_msg.obstacle_set.obs_polygon.push_back(polygon_msg);
+  }
+  
 
   static_msg.obstacle_set.header.stamp = time_now;
   static_msg.obstacle_set.header.frame_id = target_frame_;
   arena_info_static_pub_.publish(static_msg);
-  // line_marker_publisher_.publish(marker_msg);
+  line_marker_publisher_.publish(marker_msg);
 
 }
 
@@ -687,13 +857,68 @@ void SetpointpubCB(const ros::TimerEvent& e)
 
 }
 
+void fast_odom_cb(const nav_msgs::Odometry::ConstPtr& msg)
+{
+    odom_deque.push_back(*msg);
+    if (odom_deque.size() > odom_save_size_)
+        odom_deque.pop_front();
+}
+
+  bool findClosestOdom(ros::Time stamp, nav_msgs::Odometry& odom)
+  {
+      if (odom_deque.size()<10) return false;
+      if (odom_deque.back().header.stamp - stamp < ros::Duration(0))
+      {
+          odom = odom_deque.back();
+          return true;
+      }
+      else if (odom_deque.front().header.stamp - stamp > ros::Duration(0))
+      {
+          ROS_WARN("trigger time out of the range of the buffer! leave if first!!");
+          odom = odom_deque.front();
+          return true;
+      }
+
+      int oldest = 0;
+      int newest = odom_deque.size() - 1;
+      if (newest <= 0)
+      {
+          ROS_WARN("findClosestOdom: not many odom received!!");
+          return false;
+      }
+      int mid;
+      while (newest - oldest > 1)
+      {
+          mid = oldest + (newest - oldest) / 2;
+          if (odom_deque[mid].header.stamp - stamp < ros::Duration(0))
+              oldest = mid;
+          else
+              newest = mid;
+      }
+
+      if (stamp - odom_deque[oldest].header.stamp >
+          odom_deque[newest].header.stamp - stamp)
+      {
+          odom = odom_deque[newest];
+      }
+      else
+      {
+          odom = odom_deque[oldest];
+      }
+
+      if (fabs((odom.header.stamp - stamp).toSec()) > 0.003)
+          ROS_WARN("findClosestOdom: closest time stamp is %f",fabs((odom.header.stamp - stamp).toSec()));
+
+      return true;
+  }
+
 void odom_cb(const nav_msgs::Odometry::ConstPtr& msg)
 {
 	// tf2::Quaternion quat_tf;
 	// tf2::fromMsg(msg->pose.pose.orientation, quat_tf);
 	// double roll,pitch,yaw;
 	// double yaw = tf::getYaw(msg->pose.pose.orientation);
-  // angularZ_ = msg->twist.twist.angular.z;
+  angularZ_ = msg->twist.twist.angular.z;
 
 	std::string frame_id="map";
 	ros::Time timestamp = ros::Time::now();

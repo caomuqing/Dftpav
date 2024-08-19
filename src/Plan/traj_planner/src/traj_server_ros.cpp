@@ -407,7 +407,7 @@ namespace plan_utils
         double vel_cmd = 0.0, yaw_cmd = 0.0;
         double max_yaw_rate_ = 40.0f/180.0f*3.14159;
 
-        if ((ros::Time::now()-last_activate_rotation_time_).toSec()<4.0)
+        if ((ros::Time::now()-last_activate_rotation_time_).toSec()<8.0)
         {
           double yaw_rate_tmp =wrapToPi(end_pt_(2) - desired_state.angle) * gain_heading_follow_;
 
@@ -430,7 +430,12 @@ namespace plan_utils
           // std::cout<<"ratio is "<<state.velocity*tan(state.steer)/0.7/yaw_rate_tmp<<std::endl;    
           double maxx = 0.65, minx = -0.30;
           vel_cmd = std::min(maxx, std::max(minx, state.velocity) + pos_error(0)*0.4); //hard limit
-          if (scan_min_<0.9 || scan_min2_ <0.65) vel_cmd = std::min(0.0, vel_cmd);
+          if (scan_min_<0.75 || (scan_min2_ <0.65&& scan_min2_>0.40)) 
+          {
+            std::cout<<"555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555 "<<std::endl;
+            std::cout<<"scan_min_: "<< scan_min_<<"    scan_min2_"<<scan_min2_<<std::endl;
+            vel_cmd = std::min(0.0, vel_cmd);
+          }
           if ((ros::Time::now()-last_people_angle_time_).toSec()<0.5) //people check using image detection
           {
             for (auto people : angle_list_)
@@ -443,6 +448,8 @@ namespace plan_utils
                     abs(people(0)-people(1))>angle_span)
                 {
                   vel_cmd = std::min(0.0, vel_cmd);
+                  std::cout<<"444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444 "<<std::endl;
+
                   break;
                 }
             }
@@ -454,11 +461,14 @@ namespace plan_utils
           if (yaw_rate_tmp>max_yaw_rate_) yaw_rate_tmp = max_yaw_rate_;
           else if (yaw_rate_tmp<-max_yaw_rate_) yaw_rate_tmp = -max_yaw_rate_;    
 
-          yaw_cmd = state.velocity*(tan(state.steer)/0.7)+yaw_rate_tmp; //yaw depends on steering curvature
+          yaw_cmd = state.velocity*(tan(state.steer)/0.65)+yaw_rate_tmp; //yaw depends on steering curvature
 
           double min_turning_radius = 0.48;
-          if (fabs(vel_cmd/yaw_cmd)<min_turning_radius) yaw_cmd = (vel_cmd/yaw_cmd>0? 1.0:-1.0) * vel_cmd/min_turning_radius; //if longitudinal vel is small, disable turning
+          if (fabs(vel_cmd)<0.01) {yaw_cmd = 0.0;}
+          else if (fabs(vel_cmd/yaw_cmd)<min_turning_radius) {yaw_cmd = (vel_cmd/yaw_cmd>0? 1.0:-1.0) * vel_cmd/min_turning_radius; }//if longitudinal vel is small, disable turning
           // else if (fabs(wrapToPi(state.angle - desired_state.angle))>0.15)
+          if (yaw_cmd>max_yaw_rate_) yaw_cmd = max_yaw_rate_;
+          else if (yaw_cmd<-max_yaw_rate_) yaw_cmd = -max_yaw_rate_;   
         }
 
         geometry_msgs::Twist cmd_msg;
@@ -615,6 +625,10 @@ namespace plan_utils
           pos = fullstate.vec_position;
           yaw = fullstate.angle;
           state << pos[0],pos[1],yaw;
+          Eigen::Matrix<double, 2, 2> rot;
+          double theta = -yaw;
+          rot << cos(theta), -sin(theta),
+                  sin(theta), cos(theta);          
           map_adapter_.CheckIfCollisionUsingPosAndYaw(vp_,state,&is_collision);
           if(is_collision)  return true;   
 
@@ -633,12 +647,15 @@ namespace plan_utils
               // std::cout<<"surround_p is "<<surround_p<<std::endl;
               // std::cout<<"pos is "<<pos<<std::endl;
 
-              if ((surround_p - pos).norm()<0.55)
+              if ((surround_p - pos).norm()<0.45)
               { 
                 Eigen::Vector2d init_p = dymicObs[sur_id].traj.getPos(0.0);
-                Eigen::Vector2d init_dp = init_p - initpos;
-                double yawtoagent = atan(init_dp(1)/ init_dp(0));
-                if (yawtoagent <-1.57 || yawtoagent > 1.57) continue; //agent come from the back, dun care
+
+                Vecf<2> pos_error = rot * (init_p - pos);  
+                double angle_to_target = atan2(pos_error(1), pos_error(0));        
+                //agent come from the back and vehicle is moving forward, dun care
+                if (fabs(angle_to_target)>0.7*M_PI && fullstate.velocity>0) continue;
+
                 map_adapter_.CheckCollisionUsingGlobalPosition(init_p, &is_collision);
                 if (!is_collision) return true; //filter away noises from static obstacles
               } 
@@ -728,8 +745,17 @@ namespace plan_utils
           pos = fullstate.vec_position;
           yaw = fullstate.angle;
           state << pos[0],pos[1],yaw;
+          Eigen::Matrix<double, 2, 2> rot;
+          double theta = -yaw;
+          rot << cos(theta), -sin(theta),
+                  sin(theta), cos(theta);          
           map_adapter_.CheckIfCollisionUsingPosAndYaw(vp_,state,&is_collision);
-          if(is_collision)  return true;   
+          if(is_collision)  
+          {
+            std::cout<<"111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111 "<<std::endl;
+
+            return true;   
+          }
 
           // std::cout<<"dymicObs.size is "<<dymicObs.size()<<std::endl;
 
@@ -746,14 +772,21 @@ namespace plan_utils
               // std::cout<<"surround_p is "<<surround_p<<std::endl;
               // std::cout<<"pos is "<<pos<<std::endl;
 
-              if ((surround_p - pos).norm()<0.55)
+              if ((surround_p - pos).norm()<0.45)
               { 
                 Eigen::Vector2d init_p = dymicObs[sur_id].traj.getPos(0.0);
-                Eigen::Vector2d init_dp = init_p - initpos;
-                double yawtoagent = atan(init_dp(1)/ init_dp(0));
-                if (yawtoagent <-1.57 || yawtoagent > 1.57) continue; //agent come from the back, dun care
+
+                Vecf<2> pos_error = rot * (init_p - pos);  
+                double angle_to_target = atan2(pos_error(1), pos_error(0));        
+                //agent come from the back and vehicle is moving forward, dun care
+                if (fabs(angle_to_target)>0.7*M_PI && fullstate.velocity>0) continue;
+
                 map_adapter_.CheckCollisionUsingGlobalPosition(init_p, &is_collision);
-                if (!is_collision) return true; //filter away noises from static obstacles
+                if (!is_collision) 
+                {
+                  std::cout<<"22222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222 "<<std::endl;
+                  return true; //filter away noises from static obstacles
+                }
               } 
             }    
           }
@@ -778,7 +811,11 @@ namespace plan_utils
         executing_traj_->at(exe_traj_index_).traj.GetState(t-executing_traj_->at(exe_traj_index_).start_time, &state);
         if ((ros::Time::now().toSec()-last_replan)>1.0 &&
           ((pos - state.vec_position).norm()>0.30 )) //|| fabs(yaw - state.angle)>0.15
-          return true;
+          {
+            std::cout<<"3333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333 "<<std::endl;
+            return true;
+        
+          }
 
       }
       return false;
@@ -977,7 +1014,7 @@ void TrajPlannerServer::ScanCallback(const sensor_msgs::LaserScan::ConstPtr& sca
           scan_min=scan_msg->ranges[i];        
       }
 
-      if (fabs(angle)<0.95)
+      if (fabs(angle)<0.65)
       {
        if (scan_msg->ranges[i]<scan_min2)
           scan_min2=scan_msg->ranges[i];        

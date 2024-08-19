@@ -1781,7 +1781,7 @@ namespace plan_manage
     vec_le_.push_back(le_1); vec_le_.push_back(le_2); vec_le_.push_back(le_3); vec_le_.push_back(le_4); 
     vec_le_.push_back(le_1); // !!!!!
 
-    double radd = 0.3;
+    double radd = 0.25;
     double edges = 10.0;
     for (size_t i = 0; i < edges; i++)
     {

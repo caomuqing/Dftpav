@@ -7,9 +7,9 @@
         "id": 0,
         "type": "car",
         "obstacle_map_meta_info": {
-          "width": 500,
-          "height": 500,
-          "resolution": 0.2
+          "width": 1000,
+          "height": 1000,
+          "resolution": 0.1
         },
         "surrounding_search_radius": 100.0,
         "enable_openloop_prediction": true
