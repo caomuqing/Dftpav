@@ -58,6 +58,9 @@
 #include "geometry_msgs/Twist.h"
 #include "sensor_msgs/LaserScan.h"
 #include "std_msgs/Float32MultiArray.h"
+#include <std_msgs/Int32MultiArray.h>
+#include "minco_config.pb.h"
+#include <traj_planner/Weights.h> 
 
 #define Budget 0.1
 namespace plan_utils
@@ -159,12 +162,18 @@ namespace plan_utils
     void ScanCallback(const sensor_msgs::LaserScan::ConstPtr& scan_msg);
     void peopleAngleCallback(const std_msgs::Float32MultiArray::ConstPtr& angle_msg);
     void odom_cb(const nav_msgs::Odometry::ConstPtr& msg);
+    void update_weights();
+    void weightsCallback(const traj_planner::Weights::ConstPtr& msg);
 
     bool CheckReplan(int& new_goal);
     bool CheckReplanTraj(std::unique_ptr<SingulTrajData>& executing_traj, int exe_traj_index, int final_traj_index);    
+    std_msgs::Int32MultiArray eigenToMultiArray(const Eigen::Matrix<int, Eigen::Dynamic, Eigen::Dynamic>& matrix);
+    void publish_weights();
+
     Eigen::Vector4d end_pt_;
     ros::Subscriber parking_sub_;
     ros::Subscriber scan_sub_, people_angle_sub_, odom_sub_;
+    ros::Subscriber weights_sub;
     double scan_min_ = 100.0;
     double scan_min2_ = 100.0;
     ros::Time last_people_angle_time_;
@@ -181,9 +190,12 @@ namespace plan_utils
 
 
     /*publish the kinotraj as Path msg*/
-    ros::Publisher kinopath_pub;
+    ros::Publisher kinopath_pub, obstmap_pub, weights_pub;
     double last_replan;
-
+    std::vector<Eigen::Vector3d> traj_upcoming_;
+    double wei_obs_, wei_surround_, wei_feas_, wei_sqrvar_, wei_time_;
+    double wei_obs_NN, wei_surround_NN, wei_feas_NN, wei_sqrvar_NN, wei_time_NN;
+    planning::minco::Config cfg_;
   };
 
 }  // namespace plan_utils

@@ -60,6 +60,7 @@ add_message_files(
   FILES
   DataDisp.msg
   PolyTraj.msg
+  Weights.msg
   )
   
 

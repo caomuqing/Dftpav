@@ -53,13 +53,14 @@ namespace plan_utils
     scan_sub_= nh_.subscribe("/scan", 1,  &TrajPlannerServer::ScanCallback, this);
     people_angle_sub_= nh_.subscribe("/angle_list", 1,  &TrajPlannerServer::peopleAngleCallback, this);
     odom_sub_= nh_.subscribe("/odom", 1,  &TrajPlannerServer::odom_cb, this);
+    weights_sub = nh_.subscribe("/set_weights", 1000, &TrajPlannerServer::weightsCallback, this);
 
-    if(!isparking){
-      trajplan = std::bind(&plan_manage::TrajPlanner::RunOnce,p_planner_);
-    }
-    else{
-      trajplan = std::bind(&plan_manage::TrajPlanner::RunOnceParking,p_planner_);
-    }
+    // if(!isparking){
+    //   trajplan = std::bind(&plan_manage::TrajPlanner::RunOnce,p_planner_);
+    // }
+    // else{
+    //   trajplan = std::bind(&plan_manage::TrajPlanner::RunOnceParking,p_planner_);
+    // }
     
 
   }
@@ -73,7 +74,20 @@ namespace plan_utils
   void TrajPlannerServer::Init(const std::string& config_path) 
   {
 
-    p_planner_->Init(config_path);
+    p_planner_->Init(config_path, cfg_);
+
+    wei_obs_ = cfg_.opt_cfg().wei_sta_obs();
+    wei_surround_ = cfg_.opt_cfg().wei_dyn_obs();
+    wei_feas_ = cfg_.opt_cfg().wei_feas();
+    wei_sqrvar_ = cfg_.opt_cfg().wei_sqrvar();
+    wei_time_ = cfg_.opt_cfg().wei_time();
+
+    wei_obs_NN = wei_obs_;
+    wei_surround_NN = wei_surround_;
+    wei_feas_NN = wei_feas_; 
+    wei_sqrvar_NN = wei_sqrvar_;
+    wei_time_NN = wei_time_;
+
     nh_.param("use_sim_state", use_sim_state_, true);
     nh_.param("gain_heading_follow", gain_heading_follow_, 0.4);
     nh_.param("gain_heading_y_correction", gain_heading_y_correction_, 0.6);
@@ -86,6 +100,9 @@ namespace plan_utils
     cmd_vel_pub_ = nh_.advertise<geometry_msgs::Twist>("/cmd_vel", 20);
     executing_traj_vis_pub_ = nh_.advertise<visualization_msgs::MarkerArray>(traj_topic, 1);
     debug_pub =  nh_.advertise<std_msgs::Bool>("/DEBUG", 1);
+    obstmap_pub = nh_.advertise<std_msgs::Int32MultiArray>("obst_map", 1000);
+    weights_pub = nh_.advertise<traj_planner::Weights>("/using_weights", 1000);
+
     end_pt_.setZero();
 
 
@@ -407,7 +424,7 @@ namespace plan_utils
         double vel_cmd = 0.0, yaw_cmd = 0.0;
         double max_yaw_rate_ = 40.0f/180.0f*3.14159;
 
-        if ((ros::Time::now()-last_activate_rotation_time_).toSec()<4.0)
+        if (false && (ros::Time::now()-last_activate_rotation_time_).toSec()<4.0)
         {
           double yaw_rate_tmp =wrapToPi(end_pt_(2) - desired_state.angle) * gain_heading_follow_;
 
@@ -430,7 +447,7 @@ namespace plan_utils
           // std::cout<<"ratio is "<<state.velocity*tan(state.steer)/0.7/yaw_rate_tmp<<std::endl;    
           double maxx = 1.65, minx = -1.30;
           vel_cmd = std::min(maxx, std::max(minx, state.velocity) + pos_error(0)*0.4); //hard limit
-          if (scan_min_<0.9 || scan_min2_ <0.65) vel_cmd = std::min(0.0, vel_cmd);
+          if (scan_min_<0.75 || scan_min2_ <0.65) vel_cmd = std::min(0.0, vel_cmd);
           if ((ros::Time::now()-last_people_angle_time_).toSec()<0.5) //people check using image detection
           {
             for (auto people : angle_list_)
@@ -454,11 +471,14 @@ namespace plan_utils
           if (yaw_rate_tmp>max_yaw_rate_) yaw_rate_tmp = max_yaw_rate_;
           else if (yaw_rate_tmp<-max_yaw_rate_) yaw_rate_tmp = -max_yaw_rate_;    
 
-          yaw_cmd = state.velocity*(tan(state.steer)/0.7)+yaw_rate_tmp; //yaw depends on steering curvature
+          yaw_cmd = state.velocity*(tan(state.steer)/0.65)+yaw_rate_tmp; //yaw depends on steering curvature
 
           double min_turning_radius = 0.48;
-          if (fabs(vel_cmd/yaw_cmd)<min_turning_radius) yaw_cmd = (vel_cmd/yaw_cmd>0? 1.0:-1.0) * vel_cmd/min_turning_radius; //if longitudinal vel is small, disable turning
+          if (fabs(vel_cmd)<0.01) {yaw_cmd = 0.0;}
+          else if (fabs(vel_cmd/yaw_cmd)<min_turning_radius) {yaw_cmd = (vel_cmd/yaw_cmd>0? 1.0:-1.0) * vel_cmd/min_turning_radius; }//if longitudinal vel is small, disable turning
           // else if (fabs(wrapToPi(state.angle - desired_state.angle))>0.15)
+          if (yaw_rate_tmp>max_yaw_rate_) yaw_rate_tmp = max_yaw_rate_;
+          else if (yaw_rate_tmp<-max_yaw_rate_) yaw_rate_tmp = -max_yaw_rate_;    
         }
 
         geometry_msgs::Twist cmd_msg;
@@ -470,11 +490,56 @@ namespace plan_utils
         // cmd_msg.angular.z = yaw_rate_tmp;
         cmd_msg.angular.z = yaw_cmd;
 
-        cmd_vel_pub_.publish(cmd_msg);              
+        cmd_vel_pub_.publish(cmd_msg);           
+
+        //for reinforcement learning
+        int grid_number = 30;
+        double grid_res = 0.2;
+        vec_Vec2f vec_obs = p_planner_->display_vec_obs();
+        double origin_x = desired_state.vec_position[0] + grid_res * (double)grid_number/2.0;
+        double origin_y = desired_state.vec_position[1] + grid_res * (double)grid_number/2.0;
+        Eigen::Matrix<int, Eigen::Dynamic, Eigen::Dynamic> obst_map(grid_number, grid_number);
+        obst_map.setZero();
+
+        for (size_t i = 0; i < vec_obs.size(); ++i)
+        {
+          double x_diff = vec_obs[i](0) - desired_state.vec_position[0];
+          double y_diff = vec_obs[i](1) - desired_state.vec_position[1];
+          if (fabs(x_diff)> grid_res * (double)grid_number/2.0 || fabs(y_diff)> grid_res * (double)grid_number/2.0)
+          continue;
+          int coord_x = std::floor((origin_x-vec_obs[i](0))/grid_res);
+          int coord_y = std::floor((origin_y-vec_obs[i](1))/grid_res);
+          if (coord_x<0 || coord_x>grid_number || coord_y<0 || coord_y>grid_number)
+          {
+            std::cout << "NOT GOOD!!!!!!!!!!!!!!!!!!!!!!!!!!"<<std::endl;
+            std::cout << "coord_x::"<<coord_x<<"coord_y::"<<coord_y<<std::endl;
+          }
+
+          obst_map(coord_x, coord_y) = 1;
+
+        }
+
+        for (auto state: traj_upcoming_)
+        {
+          double x_diff = state(0) - desired_state.vec_position[0];
+          double y_diff = state(1) - desired_state.vec_position[1];
+          if (fabs(x_diff)> grid_res * (double)grid_number/2.0 || fabs(y_diff)> grid_res * (double)grid_number/2.0)
+          continue;
+          int coord_x = std::floor((origin_x-state(0))/grid_res);
+          int coord_y = std::floor((origin_y-state(1))/grid_res);
+
+          obst_map(coord_x, coord_y) = 2;          
+        }
+        
+        std_msgs::Int32MultiArray array_msg = eigenToMultiArray(obst_map);
+        obstmap_pub.publish(array_msg);
+        publish_weights();
+        std::cout<<obst_map<<std::endl;
       }
    
       }
     }
+
     
     // trajectory visualization
     /*{
@@ -515,6 +580,31 @@ namespace plan_utils
   //   }
   //   return angle;
   //   }    
+
+  std_msgs::Int32MultiArray TrajPlannerServer::eigenToMultiArray(const Eigen::Matrix<int, Eigen::Dynamic, Eigen::Dynamic>& matrix) 
+  {
+      std_msgs::Int32MultiArray array_msg;
+
+      // Set dimensions (rows and columns)
+      array_msg.layout.dim.push_back(std_msgs::MultiArrayDimension());
+      array_msg.layout.dim.push_back(std_msgs::MultiArrayDimension());
+      array_msg.layout.dim[0].label = "rows";
+      array_msg.layout.dim[1].label = "cols";
+      array_msg.layout.dim[0].size = matrix.rows();
+      array_msg.layout.dim[1].size = matrix.cols();
+      array_msg.layout.dim[0].stride = matrix.rows() * matrix.cols();
+      array_msg.layout.dim[1].stride = matrix.cols();
+
+      // Flatten the matrix into a 1D array
+      array_msg.data.resize(matrix.size());
+      for (int i = 0; i < matrix.rows(); ++i) {
+          for (int j = 0; j < matrix.cols(); ++j) {
+              array_msg.data[i * matrix.cols() + j] = matrix(i, j);
+          }
+      }
+
+      return array_msg;
+  }
 
     double TrajPlannerServer::wrapToPi(double angleinradian)
     {
@@ -562,6 +652,7 @@ namespace plan_utils
     return kSuccess;
   }
 
+  //check the new plan after generation
   bool TrajPlannerServer::CheckReplanTraj(std::unique_ptr<SingulTrajData>& executing_traj, int exe_traj_index, int final_traj_index){
       //return 1: replan 0: not
       // std::cout<<"checking replan!! "<<std::endl;
@@ -712,6 +803,7 @@ namespace plan_utils
       int i = exe_traj_index_;
       bool got_initpos = false;
       Eigen::Vector2d initpos;
+      traj_upcoming_.clear();
       while(i < executing_traj_->size() && tadd <5.0){
 
           common::State fullstate;
@@ -728,6 +820,7 @@ namespace plan_utils
           pos = fullstate.vec_position;
           yaw = fullstate.angle;
           state << pos[0],pos[1],yaw;
+          traj_upcoming_.push_back(state);
           map_adapter_.CheckIfCollisionUsingPosAndYaw(vp_,state,&is_collision);
           if(is_collision)  return true;   
 
@@ -798,7 +891,9 @@ namespace plan_utils
     desired_state.time_stamp = ros::Time::now().toSec()+Budget;
     if(executing_traj_ ==nullptr){
       p_planner_->set_initial_state(desired_state);
-      if (trajplan()!= kSuccess) {
+      update_weights();
+
+      if (p_planner_->RunOnceParking(wei_obs_, wei_surround_, wei_feas_, wei_sqrvar_, wei_time_) != kSuccess) {
         Display();
         return kWrongStatus;
       }
@@ -874,7 +969,8 @@ namespace plan_utils
       {
         p_planner_->set_initial_state(desired_state); 
       }
-      if (trajplan() != kSuccess) {
+      update_weights();
+      if (p_planner_->RunOnceParking(wei_obs_, wei_surround_, wei_feas_, wei_sqrvar_, wei_time_) != kSuccess) {
         Display();      
         return kWrongStatus;
       }
@@ -987,5 +1083,39 @@ void TrajPlannerServer::ScanCallback(const sensor_msgs::LaserScan::ConstPtr& sca
     scan_min2_ = scan_min2;
 }
 
+  void TrajPlannerServer::update_weights()
+  {
+    wei_obs_ = wei_obs_NN;
+    wei_surround_ = wei_surround_NN;
+    wei_feas_ = wei_feas_NN; 
+    wei_sqrvar_ = wei_sqrvar_NN;
+    wei_time_ = wei_time_NN;
+  }
+
+  void TrajPlannerServer::publish_weights()
+  {
+    traj_planner::Weights weights_msg;
+    weights_msg.header.stamp = ros::Time::now();
+    weights_msg.wei_obs = wei_obs_;
+    weights_msg.wei_surround = wei_surround_;
+    weights_msg.wei_feas = wei_feas_;
+    weights_msg.wei_sqrvar = wei_sqrvar_;
+    weights_msg.wei_time = wei_time_;
+
+    weights_pub.publish(weights_msg);
+
+  }
+
+void TrajPlannerServer::weightsCallback(const traj_planner::Weights::ConstPtr& msg) {
+    wei_obs_NN = msg->wei_obs;
+    wei_surround_NN = msg->wei_surround;
+    wei_feas_NN = msg->wei_feas;
+    wei_sqrvar_NN = msg->wei_sqrvar;
+    wei_time_NN = msg->wei_time;
+
+    // For debugging, print the updated values
+    ROS_INFO("Setting weights: wei_obs_ = %f, wei_surround_ = %f, wei_feas_ = %f, wei_sqrvar_ = %f, wei_time_ = %f",
+             wei_obs_NN, wei_surround_NN, wei_feas_NN, wei_sqrvar_NN, wei_time_NN);
+}
 
 }  // namespace planning

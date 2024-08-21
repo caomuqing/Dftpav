@@ -9,7 +9,7 @@
 namespace plan_manage
 {
 
-  ErrorType TrajPlanner::Init(const std::string config_path) {
+  ErrorType TrajPlanner::Init(const std::string config_path, planning::minco::Config& cfg) {
     ReadConfig(config_path);
 
     // * Planner config
@@ -32,7 +32,7 @@ namespace plan_manage
     /*  kino a* intial  */
     kino_path_finder_.reset(new path_searching::KinoAstar);
     kino_path_finder_->init(cfg_,nh_);
-
+    cfg = cfg_;
 
 
     /*teb local planner hzc*/
@@ -158,7 +158,7 @@ namespace plan_manage
     return flatOutput;
   }
 
-  ErrorType TrajPlanner::RunOnceParking(){
+  ErrorType TrajPlanner::RunOnceParking(double wei_obs, double wei_surround, double wei_feas, double wei_sqrvar, double wei_time){
     if(!have_parking_target) return kWrongStatus;
     // have_parking_target = false;      
     Eigen::Vector4d parking_end = end_pt;
@@ -212,7 +212,7 @@ namespace plan_manage
     // tri_flag =1;
     std::cout<<"traj segs num: "<<kino_trajs_.size()<<"\n";
     
-    if (RunMINCOParking()!= kSuccess)
+    if (RunMINCOParking(wei_obs, wei_surround, wei_feas, wei_sqrvar, wei_time)!= kSuccess)
     {
       LOG(ERROR) << "[PolyTrajManager Parking] fail to optimize the trajectories.\n";
       return kWrongStatus;
@@ -508,7 +508,7 @@ namespace plan_manage
   }
 
 
-  ErrorType TrajPlanner::RunMINCOParking(){
+  ErrorType TrajPlanner::RunMINCOParking(double wei_obs, double wei_surround, double wei_feas, double wei_sqrvar, double wei_time){
     //TO DO
     
     
@@ -604,6 +604,7 @@ namespace plan_manage
     double t2 = ros::Time::now().toSec();
     std::cout<<"convert time: "<<(t2-t1)<<std::endl;
     ploy_traj_opt_->setSurroundTrajs(&surround_trajs);
+    ploy_traj_opt_->setWeights(wei_obs, wei_surround, wei_feas, wei_sqrvar, wei_time);
     // ploy_traj_opt_->setSurroundTrajs(NULL);
     std::cout<<"try to optimize!\n";
     

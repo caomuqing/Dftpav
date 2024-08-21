@@ -107,6 +107,7 @@ namespace plan_manage
     void setControlPoints(const Eigen::MatrixXd &points);
     void setSurroundTrajs(plan_utils::SurroundTrajData *surround_trajs_ptr);
     void setDroneId(const int drone_id);
+    void setWeights(double wei_obs, double wei_surround, double wei_feas, double wei_sqrvar, double wei_time); 
 
     /* helper functions */
     inline const std::vector<plan_utils::MinJerkOpt> *getMinJerkOptPtr(void) { return &jerkOpt_container; }

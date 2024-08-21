@@ -2096,4 +2096,13 @@ namespace plan_manage
 
   void PolyTrajOptimizer::setDroneId(const int drone_id) { drone_id_ = drone_id; }
 
+  void PolyTrajOptimizer::setWeights(double wei_obs, double wei_surround, double wei_feas, double wei_sqrvar, double wei_time) 
+  { 
+    wei_obs_ = wei_obs;
+    wei_surround_ = wei_surround;
+    wei_feas_ = wei_feas;
+    wei_sqrvar_ = wei_sqrvar;
+    wei_time_ = wei_time;
+  }
+
 } // namespace plan_manage
