@@ -368,7 +368,7 @@ namespace plan_utils
         std_msgs::Int32MultiArray array_msg = eigenToMultiArray(obst_map);
         obstmap_pub.publish(array_msg);
         publish_weights();
-        std::cout<<obst_map<<std::endl;
+        // std::cout<<obst_map<<std::endl;
     }
     
     if (executing_traj_ == nullptr ||exe_traj_index_ > final_traj_index_ ||
