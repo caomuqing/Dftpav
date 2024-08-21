@@ -203,7 +203,7 @@ namespace plan_manage
     double frontendt1 = ros::Time::now().toSec();
     if (getKinoPath(parking_end) != kSuccess){
       LOG(ERROR) << "[PolyTrajManager Parking] fail to get the front-end.\n";
-      return kWrongStatus;   
+      return kKinoFail;   
     }
     double frontendt2 = ros::Time::now().toSec();
     ROS_INFO_STREAM("front_end time is: "<<1000.0*(frontendt2-frontendt1)<<" ms");
@@ -215,7 +215,7 @@ namespace plan_manage
     if (RunMINCOParking(wei_obs, wei_surround, wei_feas, wei_sqrvar, wei_time)!= kSuccess)
     {
       LOG(ERROR) << "[PolyTrajManager Parking] fail to optimize the trajectories.\n";
-      return kWrongStatus;
+      return kOptFail;
     }
     else{
       ROS_INFO("parking trajectory generate!");

@@ -196,6 +196,8 @@ namespace plan_utils
     double wei_obs_, wei_surround_, wei_feas_, wei_sqrvar_, wei_time_;
     double wei_obs_NN, wei_surround_NN, wei_feas_NN, wei_sqrvar_NN, wei_time_NN;
     planning::minco::Config cfg_;
+    ErrorType planning_success_ = kSuccess;
+    double tracking_error_ = 0.0;
   };
 
 }  // namespace plan_utils

@@ -323,6 +323,54 @@ namespace plan_utils
       // p_smm_vis_->SendTfWithStamp(current_time, last_smm_);
     }
 
+    common::State _desired_state;
+    if(map_adapter_.GetEgoState(&_desired_state)==kSuccess)
+    {
+        //for reinforcement learning
+        int grid_number = 30;
+        double grid_res = 0.2;
+        vec_Vec2f vec_obs = p_planner_->display_vec_obs();
+        double origin_x = _desired_state.vec_position[0] + grid_res * (double)grid_number/2.0;
+        double origin_y = _desired_state.vec_position[1] + grid_res * (double)grid_number/2.0;
+        Eigen::Matrix<int, Eigen::Dynamic, Eigen::Dynamic> obst_map(grid_number, grid_number);
+        obst_map.setZero();
+
+        for (size_t i = 0; i < vec_obs.size(); ++i)
+        {
+          double x_diff = vec_obs[i](0) - _desired_state.vec_position[0];
+          double y_diff = vec_obs[i](1) - _desired_state.vec_position[1];
+          if (fabs(x_diff)> grid_res * (double)grid_number/2.0 || fabs(y_diff)> grid_res * (double)grid_number/2.0)
+          continue;
+          int coord_x = std::floor((origin_x-vec_obs[i](0))/grid_res);
+          int coord_y = std::floor((origin_y-vec_obs[i](1))/grid_res);
+          if (coord_x<0 || coord_x>grid_number || coord_y<0 || coord_y>grid_number)
+          {
+            std::cout << "NOT GOOD!!!!!!!!!!!!!!!!!!!!!!!!!!"<<std::endl;
+            std::cout << "coord_x::"<<coord_x<<"coord_y::"<<coord_y<<std::endl;
+          }
+
+          obst_map(coord_x, coord_y) = 1;
+
+        }
+
+        for (auto state: traj_upcoming_)
+        {
+          double x_diff = state(0) - _desired_state.vec_position[0];
+          double y_diff = state(1) - _desired_state.vec_position[1];
+          if (fabs(x_diff)> grid_res * (double)grid_number/2.0 || fabs(y_diff)> grid_res * (double)grid_number/2.0)
+          continue;
+          int coord_x = std::floor((origin_x-state(0))/grid_res);
+          int coord_y = std::floor((origin_y-state(1))/grid_res);
+
+          obst_map(coord_x, coord_y) = 2;          
+        }
+        
+        std_msgs::Int32MultiArray array_msg = eigenToMultiArray(obst_map);
+        obstmap_pub.publish(array_msg);
+        publish_weights();
+        std::cout<<obst_map<<std::endl;
+    }
+    
     if (executing_traj_ == nullptr ||exe_traj_index_ > final_traj_index_ ||
      executing_traj_->at(exe_traj_index_).duration < 1e-5) {
        common::State state = ego_state;
@@ -492,49 +540,6 @@ namespace plan_utils
 
         cmd_vel_pub_.publish(cmd_msg);           
 
-        //for reinforcement learning
-        int grid_number = 30;
-        double grid_res = 0.2;
-        vec_Vec2f vec_obs = p_planner_->display_vec_obs();
-        double origin_x = desired_state.vec_position[0] + grid_res * (double)grid_number/2.0;
-        double origin_y = desired_state.vec_position[1] + grid_res * (double)grid_number/2.0;
-        Eigen::Matrix<int, Eigen::Dynamic, Eigen::Dynamic> obst_map(grid_number, grid_number);
-        obst_map.setZero();
-
-        for (size_t i = 0; i < vec_obs.size(); ++i)
-        {
-          double x_diff = vec_obs[i](0) - desired_state.vec_position[0];
-          double y_diff = vec_obs[i](1) - desired_state.vec_position[1];
-          if (fabs(x_diff)> grid_res * (double)grid_number/2.0 || fabs(y_diff)> grid_res * (double)grid_number/2.0)
-          continue;
-          int coord_x = std::floor((origin_x-vec_obs[i](0))/grid_res);
-          int coord_y = std::floor((origin_y-vec_obs[i](1))/grid_res);
-          if (coord_x<0 || coord_x>grid_number || coord_y<0 || coord_y>grid_number)
-          {
-            std::cout << "NOT GOOD!!!!!!!!!!!!!!!!!!!!!!!!!!"<<std::endl;
-            std::cout << "coord_x::"<<coord_x<<"coord_y::"<<coord_y<<std::endl;
-          }
-
-          obst_map(coord_x, coord_y) = 1;
-
-        }
-
-        for (auto state: traj_upcoming_)
-        {
-          double x_diff = state(0) - desired_state.vec_position[0];
-          double y_diff = state(1) - desired_state.vec_position[1];
-          if (fabs(x_diff)> grid_res * (double)grid_number/2.0 || fabs(y_diff)> grid_res * (double)grid_number/2.0)
-          continue;
-          int coord_x = std::floor((origin_x-state(0))/grid_res);
-          int coord_y = std::floor((origin_y-state(1))/grid_res);
-
-          obst_map(coord_x, coord_y) = 2;          
-        }
-        
-        std_msgs::Int32MultiArray array_msg = eigenToMultiArray(obst_map);
-        obstmap_pub.publish(array_msg);
-        publish_weights();
-        std::cout<<obst_map<<std::endl;
       }
    
       }
@@ -869,8 +874,9 @@ namespace plan_utils
         common::State state;
         double t = ros::Time::now().toSec();
         executing_traj_->at(exe_traj_index_).traj.GetState(t-executing_traj_->at(exe_traj_index_).start_time, &state);
+        tracking_error_ = (pos - state.vec_position).norm();
         if ((ros::Time::now().toSec()-last_replan)>1.0 &&
-          ((pos - state.vec_position).norm()>0.30 )) //|| fabs(yaw - state.angle)>0.15
+          (tracking_error_ >0.30 )) //|| fabs(yaw - state.angle)>0.15
           return true;
 
       }
@@ -891,9 +897,10 @@ namespace plan_utils
     desired_state.time_stamp = ros::Time::now().toSec()+Budget;
     if(executing_traj_ ==nullptr){
       p_planner_->set_initial_state(desired_state);
+      
       update_weights();
-
-      if (p_planner_->RunOnceParking(wei_obs_, wei_surround_, wei_feas_, wei_sqrvar_, wei_time_) != kSuccess) {
+      planning_success_ = p_planner_->RunOnceParking(wei_obs_, wei_surround_, wei_feas_, wei_sqrvar_, wei_time_);
+      if (planning_success_ != kSuccess) {
         Display();
         return kWrongStatus;
       }
@@ -970,7 +977,9 @@ namespace plan_utils
         p_planner_->set_initial_state(desired_state); 
       }
       update_weights();
-      if (p_planner_->RunOnceParking(wei_obs_, wei_surround_, wei_feas_, wei_sqrvar_, wei_time_) != kSuccess) {
+      planning_success_ = p_planner_->RunOnceParking(wei_obs_, wei_surround_, wei_feas_, wei_sqrvar_, wei_time_);
+
+      if (planning_success_ != kSuccess) {
         Display();      
         return kWrongStatus;
       }
@@ -1101,6 +1110,8 @@ void TrajPlannerServer::ScanCallback(const sensor_msgs::LaserScan::ConstPtr& sca
     weights_msg.wei_feas = wei_feas_;
     weights_msg.wei_sqrvar = wei_sqrvar_;
     weights_msg.wei_time = wei_time_;
+    weights_msg.planning_success = planning_success_;
+    weights_msg.tracking_error = tracking_error_;
 
     weights_pub.publish(weights_msg);
 
