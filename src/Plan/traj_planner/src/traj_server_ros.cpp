@@ -100,7 +100,7 @@ namespace plan_utils
     cmd_vel_pub_ = nh_.advertise<geometry_msgs::Twist>("/cmd_vel", 20);
     executing_traj_vis_pub_ = nh_.advertise<visualization_msgs::MarkerArray>(traj_topic, 1);
     debug_pub =  nh_.advertise<std_msgs::Bool>("/DEBUG", 1);
-    obstmap_pub = nh_.advertise<std_msgs::Int32MultiArray>("obst_map", 1000);
+    obstmap_pub = nh_.advertise<std_msgs::Int32MultiArray>("/obst_map", 1000);
     weights_pub = nh_.advertise<traj_planner::Weights>("/using_weights", 1000);
 
     end_pt_.setZero();
@@ -1072,6 +1072,7 @@ void TrajPlannerServer::ScanCallback(const sensor_msgs::LaserScan::ConstPtr& sca
     double lsr_len=scan_msg->ranges.size();
     double lsr_angle_inc=scan_msg->angle_increment;
     double lsr_angle_min=scan_msg->angle_min;
+    bool collision = false;
     for (i=0;i<(lsr_len-1);i++){
 
       double angle=((double)(i)*lsr_angle_inc)+lsr_angle_min;
@@ -1087,7 +1088,20 @@ void TrajPlannerServer::ScanCallback(const sensor_msgs::LaserScan::ConstPtr& sca
        if (scan_msg->ranges[i]<scan_min2)
           scan_min2=scan_msg->ranges[i];        
       }
+
+      double x = scan_msg->ranges[i] * cos(angle);
+      double y = scan_msg->ranges[i] * sin(angle);
+
+      double half_width = 0.6 / 2.0;
+      double half_length = 0.85 / 2.0;
+
+      // Check if the point (x, y) lies within the UGV's bounding box
+      if (x >= -half_length && x <= half_length && y >= -half_width && y <= half_width) {
+          collision = true;
+      }
     }
+    in_collision_ = collision;
+
     scan_min_ = scan_min;
     scan_min2_ = scan_min2;
 }
@@ -1112,7 +1126,7 @@ void TrajPlannerServer::ScanCallback(const sensor_msgs::LaserScan::ConstPtr& sca
     weights_msg.wei_time = wei_time_;
     weights_msg.planning_success = planning_success_;
     weights_msg.tracking_error = tracking_error_;
-
+    weights_msg.collision = in_collision_;
     weights_pub.publish(weights_msg);
 
   }

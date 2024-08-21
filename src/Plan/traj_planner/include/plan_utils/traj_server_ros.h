@@ -198,6 +198,7 @@ namespace plan_utils
     planning::minco::Config cfg_;
     ErrorType planning_success_ = kSuccess;
     double tracking_error_ = 0.0;
+    bool in_collision_ = false;
   };
 
 }  // namespace plan_utils
