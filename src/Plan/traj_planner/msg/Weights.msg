@@ -5,3 +5,6 @@ float64 wei_surround
 float64 wei_feas
 float64 wei_sqrvar
 float64 wei_time
+int64 planning_success
+int64 collision
+float64 tracking_error

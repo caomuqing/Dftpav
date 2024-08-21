@@ -129,7 +129,7 @@ namespace plan_utils
     using namespace std::chrono;
     system_clock::time_point current_start_time{system_clock::now()};
     system_clock::time_point next_start_time{current_start_time};
-    const milliseconds interval{static_cast<int>(20)}; // 50ms
+    const milliseconds interval{static_cast<int>(20)}; // 20ms, 50hz
     while (true) {
       current_start_time = system_clock::now();
       next_start_time = current_start_time + interval;
@@ -142,7 +142,7 @@ namespace plan_utils
     using namespace std::chrono;
     system_clock::time_point current_start_time{system_clock::now()};
     system_clock::time_point next_start_time{current_start_time};
-    const milliseconds interval{static_cast<int>(1000.0 / work_rate_)}; // 50ms
+    const milliseconds interval{static_cast<int>(1000.0 / work_rate_)}; // 50ms, 20hz
     while (true) {
       current_start_time = system_clock::now();
       next_start_time = current_start_time + interval;
