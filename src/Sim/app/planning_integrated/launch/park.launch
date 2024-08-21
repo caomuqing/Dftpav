@@ -21,7 +21,7 @@
     <remap from="~arena_info_dynamic" to="$(arg arena_info_dynamic_topic)"/>
     <remap from="~ctrl" to="$(arg ctrl_topic)"/>
     <!-- <remap from="/odom" to="/ranger_base_node/odom"/>     -->
-    <!-- <remap from="/cmd_vel" to="/four_wheel_steering_controller/cmd_vel"/> -->
+    <remap from="/cmd_vel" to="/four_wheel_steering_controller/cmd_vel"/>
 
   </node>
 
