@@ -707,74 +707,74 @@ namespace plan_manage
           curcost+=omg * step * wei_feas_ * 10.0 * violaCurPenaR;
         }
 
-        // double weight_scale_phidot = 1.0;
-        // if(violaPhidotL > 0.0)
-        // {
-        //   positiveSmoothedL1(violaPhidotL, violaPhidotPenaL, violaPhidotPenaDL);
-        //   Eigen::Vector2d partial_S_over_partial_dsigma
-        //       = L_ * (n3 * B_h.transpose() * dddsigma + 3 * z1 * n1 * dsigma - 3 * B_h.transpose() * ddsigma * z3 * n1 - 3 * z2 * ddsigma - 3 * z2 * z3 * dsigma / z1);
-        //   Eigen::Vector2d partial_M_over_partial_dsigma 
-        //       = 6 * n4 * dsigma + 2 * L_ * L_ * z2 * B_h.transpose() * ddsigma;
-        //   Eigen::Vector2d partial_S_over_partial_ddsigma
-        //       = -3 * L_ * n1 * (B_h * dsigma * z3 + z2 * dsigma);
-        //   Eigen::Vector2d partial_M_over_partial_ddsigma
-        //       = 2 * L_ * L_ * z2 * B_h * dsigma;
-        //   Eigen::Vector2d partial_S_over_partial_dddsigma
-        //       = L_ * n3 * B_h * dsigma;
+        double weight_scale_phidot = 1.0;
+        if(violaPhidotL > 0.0)
+        {
+          positiveSmoothedL1(violaPhidotL, violaPhidotPenaL, violaPhidotPenaDL);
+          Eigen::Vector2d partial_S_over_partial_dsigma
+              = L_ * (n3 * B_h.transpose() * dddsigma + 3 * z1 * n1 * dsigma - 3 * B_h.transpose() * ddsigma * z3 * n1 - 3 * z2 * ddsigma - 3 * z2 * z3 * dsigma / z1);
+          Eigen::Vector2d partial_M_over_partial_dsigma 
+              = 6 * n4 * dsigma + 2 * L_ * L_ * z2 * B_h.transpose() * ddsigma;
+          Eigen::Vector2d partial_S_over_partial_ddsigma
+              = -3 * L_ * n1 * (B_h * dsigma * z3 + z2 * dsigma);
+          Eigen::Vector2d partial_M_over_partial_ddsigma
+              = 2 * L_ * L_ * z2 * B_h * dsigma;
+          Eigen::Vector2d partial_S_over_partial_dddsigma
+              = L_ * n3 * B_h * dsigma;
 
-        //   Eigen::Vector2d partial_phi_dot_over_partial_dsigma
-        //       = (partial_S_over_partial_dsigma * phidot_denominator - partial_M_over_partial_dsigma * phidot_nominator) / pow(phidot_denominator, 2);
-        //   Eigen::Vector2d partial_phi_dot_over_partial_ddsigma
-        //       = (partial_S_over_partial_ddsigma * phidot_denominator - partial_M_over_partial_ddsigma * phidot_nominator) / pow(phidot_denominator, 2);
-        //   Eigen::Vector2d partial_phi_dot_over_partial_dddsigma
-        //       = partial_S_over_partial_dddsigma / phidot_denominator;
+          Eigen::Vector2d partial_phi_dot_over_partial_dsigma
+              = (partial_S_over_partial_dsigma * phidot_denominator - partial_M_over_partial_dsigma * phidot_nominator) / pow(phidot_denominator, 2);
+          Eigen::Vector2d partial_phi_dot_over_partial_ddsigma
+              = (partial_S_over_partial_ddsigma * phidot_denominator - partial_M_over_partial_ddsigma * phidot_nominator) / pow(phidot_denominator, 2);
+          Eigen::Vector2d partial_phi_dot_over_partial_dddsigma
+              = partial_S_over_partial_dddsigma / phidot_denominator;
 
-        //   gradViolaPhidotLc = beta1 * partial_phi_dot_over_partial_dsigma.transpose()
-        //                     + beta2 * partial_phi_dot_over_partial_ddsigma.transpose()
-        //                     + beta3 * partial_phi_dot_over_partial_dddsigma.transpose();
-        //   gradViolaPhidotLt = alpha * (partial_phi_dot_over_partial_dsigma.transpose() * ddsigma
-        //                               +partial_phi_dot_over_partial_ddsigma.transpose() * dddsigma
-        //                               +partial_phi_dot_over_partial_dddsigma.transpose() * ddddsigma)(0, 0);
+          gradViolaPhidotLc = beta1 * partial_phi_dot_over_partial_dsigma.transpose()
+                            + beta2 * partial_phi_dot_over_partial_ddsigma.transpose()
+                            + beta3 * partial_phi_dot_over_partial_dddsigma.transpose();
+          gradViolaPhidotLt = alpha * (partial_phi_dot_over_partial_dsigma.transpose() * ddsigma
+                                      +partial_phi_dot_over_partial_ddsigma.transpose() * dddsigma
+                                      +partial_phi_dot_over_partial_dddsigma.transpose() * ddddsigma)(0, 0);
 
-        //   jerkOpt_container[trajid].get_gdC().block<6, 2>(i * 6, 0) += omg * step * wei_sqrvar_ * weight_scale_phidot * violaPhidotPenaDL * gradViolaPhidotLc;
-        //   jerkOpt_container[trajid].get_gdT() += omg * wei_sqrvar_ * weight_scale_phidot * (violaPhidotPenaDL * gradViolaPhidotLt * step + violaPhidotPenaL / K);
-        //   costs(2) += omg * step * wei_sqrvar_ * weight_scale_phidot * violaPhidotPenaL;
-        //   phidotcost+=omg * step * wei_sqrvar_ * weight_scale_phidot * violaPhidotPenaL;
-        // }
+          jerkOpt_container[trajid].get_gdC().block<6, 2>(i * 6, 0) += omg * step * wei_sqrvar_ * weight_scale_phidot * violaPhidotPenaDL * gradViolaPhidotLc;
+          jerkOpt_container[trajid].get_gdT() += omg * wei_sqrvar_ * weight_scale_phidot * (violaPhidotPenaDL * gradViolaPhidotLt * step + violaPhidotPenaL / K);
+          costs(2) += omg * step * wei_sqrvar_ * weight_scale_phidot * violaPhidotPenaL;
+          phidotcost+=omg * step * wei_sqrvar_ * weight_scale_phidot * violaPhidotPenaL;
+        }
 
-        // if(violaPhidotR > 0.0)
-        // {
-        //   positiveSmoothedL1(violaPhidotR, violaPhidotPenaR, violaPhidotPenaDR);
-        //   Eigen::Vector2d partial_S_over_partial_dsigma
-        //       = L_ * (n3 * B_h.transpose() * dddsigma + 3 * z1 * n1 * dsigma - 3 * B_h.transpose() * ddsigma * z3 * n1 - 3 * z2 * ddsigma * n1 - 3 * z2 * z3 * dsigma / n1);
-        //   Eigen::Vector2d partial_M_over_partial_dsigma 
-        //       = 6 * n4 * dsigma + 2 * L_ * L_ * z2 * B_h.transpose() * ddsigma;
-        //   Eigen::Vector2d partial_S_over_partial_ddsigma
-        //       = -3 * L_ * n1 * (B_h * dsigma * z3 + z2 * dsigma);
-        //   Eigen::Vector2d partial_M_over_partial_ddsigma
-        //       = 2 * L_ * L_ * z2 * B_h * dsigma;
-        //   Eigen::Vector2d partial_S_over_partial_dddsigma
-        //       = L_ * n3 * B_h * dsigma;
+        if(violaPhidotR > 0.0)
+        {
+          positiveSmoothedL1(violaPhidotR, violaPhidotPenaR, violaPhidotPenaDR);
+          Eigen::Vector2d partial_S_over_partial_dsigma
+              = L_ * (n3 * B_h.transpose() * dddsigma + 3 * z1 * n1 * dsigma - 3 * B_h.transpose() * ddsigma * z3 * n1 - 3 * z2 * ddsigma * n1 - 3 * z2 * z3 * dsigma / n1);
+          Eigen::Vector2d partial_M_over_partial_dsigma 
+              = 6 * n4 * dsigma + 2 * L_ * L_ * z2 * B_h.transpose() * ddsigma;
+          Eigen::Vector2d partial_S_over_partial_ddsigma
+              = -3 * L_ * n1 * (B_h * dsigma * z3 + z2 * dsigma);
+          Eigen::Vector2d partial_M_over_partial_ddsigma
+              = 2 * L_ * L_ * z2 * B_h * dsigma;
+          Eigen::Vector2d partial_S_over_partial_dddsigma
+              = L_ * n3 * B_h * dsigma;
 
-        //   Eigen::Vector2d partial_phi_dot_over_partial_dsigma
-        //       = (partial_S_over_partial_dsigma * phidot_denominator - partial_M_over_partial_dsigma * phidot_nominator) / pow(phidot_denominator, 2);
-        //   Eigen::Vector2d partial_phi_dot_over_partial_ddsigma
-        //       = (partial_S_over_partial_ddsigma * phidot_denominator - partial_M_over_partial_ddsigma * phidot_nominator) / pow(phidot_denominator, 2);
-        //   Eigen::Vector2d partial_phi_dot_over_partial_dddsigma
-        //       = partial_S_over_partial_dddsigma / phidot_denominator;
+          Eigen::Vector2d partial_phi_dot_over_partial_dsigma
+              = (partial_S_over_partial_dsigma * phidot_denominator - partial_M_over_partial_dsigma * phidot_nominator) / pow(phidot_denominator, 2);
+          Eigen::Vector2d partial_phi_dot_over_partial_ddsigma
+              = (partial_S_over_partial_ddsigma * phidot_denominator - partial_M_over_partial_ddsigma * phidot_nominator) / pow(phidot_denominator, 2);
+          Eigen::Vector2d partial_phi_dot_over_partial_dddsigma
+              = partial_S_over_partial_dddsigma / phidot_denominator;
 
-        //   gradViolaPhidotRc = -beta1 * partial_phi_dot_over_partial_dsigma.transpose()
-        //                     - beta2 * partial_phi_dot_over_partial_ddsigma.transpose()
-        //                     - beta3 * partial_phi_dot_over_partial_dddsigma.transpose();
-        //   gradViolaPhidotRt = -alpha * (partial_phi_dot_over_partial_dsigma.transpose() * ddsigma
-        //                               +partial_phi_dot_over_partial_ddsigma.transpose() * dddsigma
-        //                               +partial_phi_dot_over_partial_dddsigma.transpose() * ddddsigma)(0, 0);
+          gradViolaPhidotRc = -beta1 * partial_phi_dot_over_partial_dsigma.transpose()
+                            - beta2 * partial_phi_dot_over_partial_ddsigma.transpose()
+                            - beta3 * partial_phi_dot_over_partial_dddsigma.transpose();
+          gradViolaPhidotRt = -alpha * (partial_phi_dot_over_partial_dsigma.transpose() * ddsigma
+                                      +partial_phi_dot_over_partial_ddsigma.transpose() * dddsigma
+                                      +partial_phi_dot_over_partial_dddsigma.transpose() * ddddsigma)(0, 0);
 
-        //   jerkOpt_container[trajid].get_gdC().block<6, 2>(i * 6, 0) += omg * step * wei_sqrvar_ * weight_scale_phidot * violaPhidotPenaDR * gradViolaPhidotRc;
-        //   jerkOpt_container[trajid].get_gdT() += omg * wei_sqrvar_ * weight_scale_phidot * (violaPhidotPenaDR * gradViolaPhidotRt * step + violaPhidotPenaR / K);
-        //   costs(2) += omg * step * wei_sqrvar_ * weight_scale_phidot * violaPhidotPenaR;
-        //   phidotcost+=omg * step * wei_sqrvar_ * weight_scale_phidot * violaPhidotPenaR;
-        // }
+          jerkOpt_container[trajid].get_gdC().block<6, 2>(i * 6, 0) += omg * step * wei_sqrvar_ * weight_scale_phidot * violaPhidotPenaDR * gradViolaPhidotRc;
+          jerkOpt_container[trajid].get_gdT() += omg * wei_sqrvar_ * weight_scale_phidot * (violaPhidotPenaDR * gradViolaPhidotRt * step + violaPhidotPenaR / K);
+          costs(2) += omg * step * wei_sqrvar_ * weight_scale_phidot * violaPhidotPenaR;
+          phidotcost+=omg * step * wei_sqrvar_ * weight_scale_phidot * violaPhidotPenaR;
+        }
       }
       t += jerkOpt_container[trajid].getDt();
     }
