@@ -774,6 +774,11 @@ namespace plan_utils
       //return 1: replan 0: not
       // std::cout<<"checking replan!! "<<std::endl;
       if(executing_traj_==nullptr) return true;
+      if(weight_changed)
+      {
+        weight_changed = false;
+        return true;
+      }
       bool is_near = false;
       bool is_collision = false;
       bool is_close_turnPoint = false;
@@ -1147,6 +1152,7 @@ void TrajPlannerServer::weightsCallback(const traj_planner::Weights::ConstPtr& m
     wei_sqrvar_NN = msg->wei_sqrvar;
     wei_time_NN = msg->wei_time;
 
+    weight_changed = true;
     // For debugging, print the updated values
     ROS_INFO("Setting weights: wei_obs_ = %f, wei_surround_ = %f, wei_feas_ = %f, wei_sqrvar_ = %f, wei_time_ = %f",
              wei_obs_NN, wei_surround_NN, wei_feas_NN, wei_sqrvar_NN, wei_time_NN);
