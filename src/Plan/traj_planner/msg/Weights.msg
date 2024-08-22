@@ -8,3 +8,4 @@ float64 wei_time
 int64 planning_success
 int64 collision
 float64 tracking_error
+int64 reached

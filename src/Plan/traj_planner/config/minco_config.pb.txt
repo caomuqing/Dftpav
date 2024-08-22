@@ -68,7 +68,7 @@ opt_cfg {
   wei_sta_obs: 10000.0
   wei_dyn_obs: 50000.0
   wei_feas: 25000.0
-  wei_sqrvar: 25000.0
+  wei_sqrvar: 250.0
   wei_time: 500.0
   dyn_obs_clearance: 0.2
   half_margin: 0.15

@@ -54,6 +54,7 @@ namespace plan_utils
     people_angle_sub_= nh_.subscribe("/angle_list", 1,  &TrajPlannerServer::peopleAngleCallback, this);
     odom_sub_= nh_.subscribe("/odom", 1,  &TrajPlannerServer::odom_cb, this);
     weights_sub = nh_.subscribe("/set_weights", 1000, &TrajPlannerServer::weightsCallback, this);
+    reset_sub = nh_.subscribe("/reset_planner", 1000, &TrajPlannerServer::resetCallback, this);
 
     // if(!isparking){
     //   trajplan = std::bind(&plan_manage::TrajPlanner::RunOnce,p_planner_);
@@ -1045,6 +1046,12 @@ namespace plan_utils
     }
   }
 
+void TrajPlannerServer::resetCallback(const std_msgs::Int32 &msg)
+{
+  p_planner_->resetPlanning();
+}
+
+
 void TrajPlannerServer::peopleAngleCallback(const std_msgs::Float32MultiArray::ConstPtr& angle_msg)
 {
   angle_list_.clear();
@@ -1127,6 +1134,8 @@ void TrajPlannerServer::ScanCallback(const sensor_msgs::LaserScan::ConstPtr& sca
     weights_msg.planning_success = planning_success_;
     weights_msg.tracking_error = tracking_error_;
     weights_msg.collision = in_collision_;
+    weights_msg.reached = p_planner_->getReachedTarget();
+
     weights_pub.publish(weights_msg);
 
   }

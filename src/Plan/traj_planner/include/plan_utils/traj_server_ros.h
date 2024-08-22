@@ -159,6 +159,7 @@ namespace plan_utils
     //______________________
     /* for parking module */
     void ParkingCallback(const geometry_msgs::PoseStamped &msg);
+    void resetCallback(const std_msgs::Int32 &msg);
     void ScanCallback(const sensor_msgs::LaserScan::ConstPtr& scan_msg);
     void peopleAngleCallback(const std_msgs::Float32MultiArray::ConstPtr& angle_msg);
     void odom_cb(const nav_msgs::Odometry::ConstPtr& msg);
@@ -173,7 +174,7 @@ namespace plan_utils
     Eigen::Vector4d end_pt_;
     ros::Subscriber parking_sub_;
     ros::Subscriber scan_sub_, people_angle_sub_, odom_sub_;
-    ros::Subscriber weights_sub;
+    ros::Subscriber weights_sub, reset_sub;
     double scan_min_ = 100.0;
     double scan_min2_ = 100.0;
     ros::Time last_people_angle_time_;

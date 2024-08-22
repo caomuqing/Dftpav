@@ -103,6 +103,17 @@ namespace plan_manage
     void setParkingEnd(Eigen::Vector4d end_pt_){
       end_pt = end_pt_;
       have_parking_target = true;
+      reached_target = false;
+    }
+
+    void resetPlanning(){
+      have_parking_target = false;
+      reached_target = false;
+    }
+
+    bool getReachedTarget()
+    {
+      return reached_target;
     }
     //set moving obstalces, only used in the parking scene
     void set_surPoints(std::vector<std::vector<common::State>> surpoints){
@@ -239,6 +250,7 @@ namespace plan_manage
     
     /*if parking*/
     bool have_parking_target = false;
+    bool reached_target = false;
     Eigen::Vector4d end_pt;
     /*vehicle param*/
 
