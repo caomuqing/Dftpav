@@ -45,6 +45,8 @@ bool ParseVehicleSet(common::VehicleSet *p_vehicle_set);
 void odom_cb(const nav_msgs::Odometry::ConstPtr& msg);
 void people_cb(const people_msgs::People::ConstPtr& msg);
 void peopleAngleCallback(const std_msgs::Float32MultiArray::ConstPtr& angle_msg);
+void resetCallback(const std_msgs::Int32::ConstPtr& msg);
+
 double calculateOverlapPercentage(double A, double B, double C, double D);
 double closestDistance(Eigen::Vector2d A, Eigen::Vector2d B, Eigen::Vector2d C); 
 
@@ -77,6 +79,7 @@ enum tracking_state {tIDLE, tONGOING, tFINISH};
 tracking_state tstate_ = tIDLE;
 int tracking_leg_ = 0;
 ros::Time last_people_angle_time_;
+ros::Time last_reset_time_;
 std::vector<Eigen::Vector2d> angle_list_;
 std::vector<Eigen::Vector2d> lines_list_;
 
@@ -113,6 +116,7 @@ int main(int argc, char *argv[]) {
     pListener = new (tf::TransformListener);
     pos_ << 0.0, 0.0, 0.0;
     last_people_angle_time_ = ros::Time::now();
+    last_reset_time_ = ros::Time::now();
 
   	SetpointpubCBTimer_ = nh.createTimer(ros::Duration(0.1), SetpointpubCB);  
   	ros::Subscriber odom_sub = nh.subscribe<nav_msgs::Odometry>("/odom", 10, odom_cb);
@@ -121,6 +125,7 @@ int main(int argc, char *argv[]) {
     ros::Subscriber pubgoal_sub = nh.subscribe<std_msgs::Bool>("/pub_goal", 10, pubgoal_cb);
     ros::Subscriber globalplan_sub = nh.subscribe<nav_msgs::Path>("/path_planning_node/GlobalPlanner/plan", 10, globalplan_cb);
     ros::Subscriber people_angle_sub_= nh.subscribe("/angle_list", 1, peopleAngleCallback);
+    ros::Subscriber reset_sub_= nh.subscribe("/reset_planner", 100, resetCallback);
 
   	arena_info_dynamic_pub_ =
       nh.advertise<vehicle_msgs::ArenaInfoDynamic>("/arena_info_dynamic", 10);
@@ -142,6 +147,11 @@ int main(int argc, char *argv[]) {
 		// ros::spinOnce();
 	// }
 	return 0;
+}
+
+void resetCallback(const std_msgs::Int32::ConstPtr& msg)
+{
+  last_reset_time_ = ros::Time::now();
 }
 
 void peopleAngleCallback(const std_msgs::Float32MultiArray::ConstPtr& angle_msg)
@@ -316,7 +326,8 @@ void lines_cb(const visualization_msgs::Marker::ConstPtr& msg)
     initialized_ = true;
     line_msg_ = msg;
   }
-  else if ((time_now-line_msg_->header.stamp).toSec()<0.05) return;
+  else if ((time_now-line_msg_->header.stamp).toSec()<0.05 ||
+            (time_now-last_reset_time_).toSec()<1.0) return;
 
     visualization_msgs::Marker marker_msg;
     marker_msg.ns = "angles_lines";
