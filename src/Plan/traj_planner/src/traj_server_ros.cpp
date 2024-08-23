@@ -907,6 +907,7 @@ namespace plan_utils
       update_weights();
       planning_success_ = p_planner_->RunOnceParking(wei_obs_, wei_surround_, wei_feas_, wei_sqrvar_, wei_time_);
       if (planning_success_ != kSuccess) {
+        if (planning_success_ == kReached) planning_success_ = kSuccess;
         Display();
         return kWrongStatus;
       }
@@ -986,6 +987,7 @@ namespace plan_utils
       planning_success_ = p_planner_->RunOnceParking(wei_obs_, wei_surround_, wei_feas_, wei_sqrvar_, wei_time_);
 
       if (planning_success_ != kSuccess) {
+        if (planning_success_ == kReached) planning_success_ = kSuccess;
         Display();      
         return kWrongStatus;
       }

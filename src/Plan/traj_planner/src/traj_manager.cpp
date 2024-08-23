@@ -159,6 +159,7 @@ namespace plan_manage
   }
 
   ErrorType TrajPlanner::RunOnceParking(double wei_obs, double wei_surround, double wei_feas, double wei_sqrvar, double wei_time){
+    if(reached_target) return kReached;
     if(!have_parking_target) return kWrongStatus;
     // have_parking_target = false;      
     Eigen::Vector4d parking_end = end_pt;
@@ -198,7 +199,7 @@ namespace plan_manage
       ROS_WARN("arrive!");
       have_parking_target = false; //hzc
       reached_target = true;
-      return kWrongStatus;
+      return kReached;
     }
 
     double frontendt1 = ros::Time::now().toSec();

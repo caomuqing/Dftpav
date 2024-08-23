@@ -24,7 +24,7 @@
 #define BACKWARD_HAS_DW 1
 #include "backward.hpp"
 
-enum ErrorType { kSuccess = 0, kWrongStatus, kIllegalInput, kUnknown, kKinoFail, kOptFail};
+enum ErrorType { kSuccess = 0, kWrongStatus, kIllegalInput, kUnknown, kKinoFail, kOptFail, kReached};
 
 using decimal_t = double;
 
