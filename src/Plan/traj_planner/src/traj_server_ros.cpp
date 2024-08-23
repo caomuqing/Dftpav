@@ -1054,6 +1054,9 @@ namespace plan_utils
 void TrajPlannerServer::resetCallback(const std_msgs::Int32 &msg)
 {
   p_planner_->resetPlanning();
+  m.lock();
+  executing_traj_.release();
+  m.unlock();
 }
 
 
