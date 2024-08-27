@@ -88,6 +88,7 @@ namespace plan_utils
     wei_feas_NN = wei_feas_; 
     wei_sqrvar_NN = wei_sqrvar_;
     wei_time_NN = wei_time_;
+    wei_jerk_NN = wei_jerk_;
 
     nh_.param("use_sim_state", use_sim_state_, true);
     nh_.param("gain_heading_follow", gain_heading_follow_, 0.4);
@@ -905,7 +906,7 @@ namespace plan_utils
       p_planner_->set_initial_state(desired_state);
       
       update_weights();
-      planning_success_ = p_planner_->RunOnceParking(wei_obs_, wei_surround_, wei_feas_, wei_sqrvar_, wei_time_);
+      planning_success_ = p_planner_->RunOnceParking(wei_obs_, wei_surround_, wei_feas_, wei_sqrvar_, wei_time_, wei_jerk_);
       if (planning_success_ != kSuccess) {
         if (planning_success_ == kReached) planning_success_ = kSuccess;
         Display();
@@ -984,7 +985,7 @@ namespace plan_utils
         p_planner_->set_initial_state(desired_state); 
       }
       update_weights();
-      planning_success_ = p_planner_->RunOnceParking(wei_obs_, wei_surround_, wei_feas_, wei_sqrvar_, wei_time_);
+      planning_success_ = p_planner_->RunOnceParking(wei_obs_, wei_surround_, wei_feas_, wei_sqrvar_, wei_time_, wei_jerk_);
 
       if (planning_success_ != kSuccess) {
         if (planning_success_ == kReached) planning_success_ = kSuccess;
@@ -1130,6 +1131,7 @@ void TrajPlannerServer::ScanCallback(const sensor_msgs::LaserScan::ConstPtr& sca
     wei_feas_ = wei_feas_NN; 
     wei_sqrvar_ = wei_sqrvar_NN;
     wei_time_ = wei_time_NN;
+    wei_jerk_ = wei_jerk_NN;
   }
 
   void TrajPlannerServer::publish_weights()
@@ -1141,6 +1143,7 @@ void TrajPlannerServer::ScanCallback(const sensor_msgs::LaserScan::ConstPtr& sca
     weights_msg.wei_feas = wei_feas_;
     weights_msg.wei_sqrvar = wei_sqrvar_;
     weights_msg.wei_time = wei_time_;
+    weights_msg.wei_jerk = wei_jerk_;
     weights_msg.planning_success = planning_success_;
     weights_msg.tracking_error = tracking_error_;
     weights_msg.collision = in_collision_;
@@ -1156,6 +1159,7 @@ void TrajPlannerServer::weightsCallback(const traj_planner::Weights::ConstPtr& m
     wei_feas_NN = msg->wei_feas;
     wei_sqrvar_NN = msg->wei_sqrvar;
     wei_time_NN = msg->wei_time;
+    wei_jerk_NN = msg->wei_jerk;
 
     weight_changed = true;
     // For debugging, print the updated values

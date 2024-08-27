@@ -52,7 +52,8 @@ namespace plan_manage
     double wei_sqrvar_;                      // squared variance weight
     double wei_time_;                        // time weight
     double surround_clearance_; // safe distance
-    
+    double wei_jerk_ = 1.0;
+
     double half_margin;                        // safe margin
     common::VehicleParam veh_param_;          
     double t_now_;
@@ -107,7 +108,7 @@ namespace plan_manage
     void setControlPoints(const Eigen::MatrixXd &points);
     void setSurroundTrajs(plan_utils::SurroundTrajData *surround_trajs_ptr);
     void setDroneId(const int drone_id);
-    void setWeights(double wei_obs, double wei_surround, double wei_feas, double wei_sqrvar, double wei_time); 
+    void setWeights(double wei_obs, double wei_surround, double wei_feas, double wei_sqrvar, double wei_time, double wei_jerk); 
 
     /* helper functions */
     inline const std::vector<plan_utils::MinJerkOpt> *getMinJerkOptPtr(void) { return &jerkOpt_container; }

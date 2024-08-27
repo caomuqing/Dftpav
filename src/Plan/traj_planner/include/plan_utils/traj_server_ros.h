@@ -195,7 +195,9 @@ namespace plan_utils
     double last_replan;
     std::vector<Eigen::Vector3d> traj_upcoming_;
     double wei_obs_, wei_surround_, wei_feas_, wei_sqrvar_, wei_time_;
+    double wei_jerk_ = 1.0;
     double wei_obs_NN, wei_surround_NN, wei_feas_NN, wei_sqrvar_NN, wei_time_NN;
+    double wei_jerk_NN = 1.0;
     planning::minco::Config cfg_;
     ErrorType planning_success_ = kSuccess;
     double tracking_error_ = 0.0;

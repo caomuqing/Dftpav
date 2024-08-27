@@ -73,7 +73,7 @@ namespace plan_manage
 
     ErrorType Init(const std::string config_path, planning::minco::Config& cfg);
     ErrorType RunOnce();
-    ErrorType RunOnceParking(double wei_obs, double wei_surround, double wei_feas, double wei_sqrvar, double wei_time);
+    ErrorType RunOnceParking(double wei_obs, double wei_surround, double wei_feas, double wei_sqrvar, double wei_time, double wei_jerk);
 
     ErrorType set_map_interface(map_utils::TrajPlannerMapItf* map_itf);
     ErrorType set_initial_state(const State& state);
@@ -146,7 +146,7 @@ namespace plan_manage
     std::unique_ptr<path_searching::KinoAstar> kino_path_finder_;
     plan_utils::KinoTrajData kino_trajs_;
     ErrorType getKinoPath(Eigen::Vector4d &end_state);
-    ErrorType RunMINCOParking(double wei_obs, double wei_surround, double wei_feas, double wei_sqrvar, double wei_time);
+    ErrorType RunMINCOParking(double wei_obs, double wei_surround, double wei_feas, double wei_sqrvar, double wei_time, double wei_jerk);
     bool enable_urban_ = false;
 
     /*teb local planner, for benchmark hzc*/

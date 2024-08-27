@@ -197,7 +197,7 @@ namespace plan_manage
     
     // initInnerPts  = ctrl_points_;
     // ros::shutdown();
-    if(final_cost>=50000.0){
+    if(final_cost>=5000000.0){
       ROS_ERROR("optimization fails! cost is too high!");
       flag_success = false;
     }
@@ -290,7 +290,11 @@ namespace plan_manage
 
       opt->jerkOpt_container[trajid].generate(P_container[trajid],T[trajid] / opt->piece_num_container[trajid],IniS,FinS);
       opt->jerkOpt_container[trajid].initSmGradCost(); // Smoothness cost   
-      smoo_cost = opt->jerkOpt_container[trajid].getTrajJerkCost();
+      double wei_jerk_ = 1.0;
+      opt->jerkOpt_container[trajid].get_gdC() *= wei_jerk_;
+      opt->jerkOpt_container[trajid].get_gdT() *= wei_jerk_;
+      
+      smoo_cost = opt->jerkOpt_container[trajid].getTrajJerkCost() * wei_jerk_;
       opt->addPVAGradCost2CT( obs_surround_feas_qvar_costs, trajid, trajtimes[trajid]); // Time int cost
       //Get gradT gradC
       total_smcost += smoo_cost;
@@ -1722,7 +1726,7 @@ namespace plan_manage
     wei_obs_ = cfg_.opt_cfg().wei_sta_obs();
     wei_surround_ = cfg_.opt_cfg().wei_dyn_obs();
     wei_feas_ = cfg_.opt_cfg().wei_feas();
-    wei_sqrvar_ = cfg_.opt_cfg().wei_sqrvar(); //used for weight of phidot
+    // wei_sqrvar_ = cfg_.opt_cfg().wei_sqrvar(); //used for weight of phidot
     wei_time_ = cfg_.opt_cfg().wei_time();
     surround_clearance_ = cfg_.opt_cfg().dyn_obs_clearance();
     half_margin = cfg_.opt_cfg().half_margin();
@@ -1740,6 +1744,7 @@ namespace plan_manage
     past = cfg_.opt_cfg().lbfgs_past();
     delta = cfg_.opt_cfg().lbfgs_delta();
     mini_T = cfg_.opt_cfg().mini_t();
+    // wei_jerk_ = cfg_.opt_cfg().wei_jerk();
 
 
 
@@ -2096,13 +2101,14 @@ namespace plan_manage
 
   void PolyTrajOptimizer::setDroneId(const int drone_id) { drone_id_ = drone_id; }
 
-  void PolyTrajOptimizer::setWeights(double wei_obs, double wei_surround, double wei_feas, double wei_sqrvar, double wei_time) 
+  void PolyTrajOptimizer::setWeights(double wei_obs, double wei_surround, double wei_feas, double wei_sqrvar, double wei_time, double wei_jerk) 
   { 
     wei_obs_ = wei_obs;
     wei_surround_ = wei_surround;
     wei_feas_ = wei_feas;
     wei_sqrvar_ = wei_sqrvar;
     wei_time_ = wei_time;
+    wei_jerk_ = wei_jerk;
   }
 
 } // namespace plan_manage
