@@ -329,7 +329,7 @@ namespace plan_utils
     if(map_adapter_.GetEgoState(&_desired_state)==kSuccess)
     {
         //for reinforcement learning
-        int grid_number = 30;
+        int grid_number = 50;
         double grid_res = 0.2;
         vec_Vec2f vec_obs = p_planner_->display_vec_obs();
         double origin_x = _desired_state.vec_position[0] + grid_res * (double)grid_number/2.0;

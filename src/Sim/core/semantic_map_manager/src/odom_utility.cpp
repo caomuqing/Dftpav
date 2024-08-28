@@ -556,7 +556,7 @@ void people_cb(const people_msgs::People::ConstPtr& msg)
 
 
     
-    if ((peoplepos-pos_).norm()<6.0)
+    if ((peoplepos-pos_).norm()<5.0)
     {
       if (peoplevel.norm()<0.1)
       {
