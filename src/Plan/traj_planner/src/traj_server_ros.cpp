@@ -132,12 +132,19 @@ namespace plan_utils
     system_clock::time_point current_start_time{system_clock::now()};
     system_clock::time_point next_start_time{current_start_time};
     const milliseconds interval{static_cast<int>(20)}; // 20ms, 50hz
-    while (true) {
-      current_start_time = system_clock::now();
-      next_start_time = current_start_time + interval;
+    while (ros::ok()) {
+      ros::Time current_start_time = ros::Time::now();
+      ros::Time next_start_time = current_start_time + ros::Duration(0.02);      
+      // current_start_time = system_clock::now();
+      // next_start_time = current_start_time + interval;
       PublishData();
-     
-      std::this_thread::sleep_until(next_start_time);
+
+      ros::Duration sleep_time = next_start_time - ros::Time::now();
+      if (sleep_time.toSec() > 0) {
+        sleep_time.sleep();
+      }
+
+      // std::this_thread::sleep_until(next_start_time);
     }
   }
   void TrajPlannerServer::MainThread() {
@@ -145,11 +152,17 @@ namespace plan_utils
     system_clock::time_point current_start_time{system_clock::now()};
     system_clock::time_point next_start_time{current_start_time};
     const milliseconds interval{static_cast<int>(1000.0 / work_rate_)}; // 50ms, 20hz
-    while (true) {
-      current_start_time = system_clock::now();
-      next_start_time = current_start_time + interval;
+    while (ros::ok()) {
+      ros::Time current_start_time = ros::Time::now();
+      ros::Time next_start_time = current_start_time + ros::Duration(1/ work_rate_);      
+      // current_start_time = system_clock::now();
+      // next_start_time = current_start_time + interval;
       PlanCycleCallback();
-      std::this_thread::sleep_until(next_start_time);
+      ros::Duration sleep_time = next_start_time - ros::Time::now();
+      if (sleep_time.toSec() > 0) {
+        sleep_time.sleep();
+      }
+      // std::this_thread::sleep_until(next_start_time);
     }
   }
 
