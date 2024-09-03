@@ -20,10 +20,10 @@
         },
         "params": {
           "width": 0.5,
-          "length": 0.9,
+          "length": 0.75,
           "wheel_base": 0.6,
-          "front_suspension": 0.2,
-          "rear_suspension": 0.2,
+          "front_suspension": 0.1,
+          "rear_suspension": 0.1,
           "max_steering_angle": 45.0,
           "max_longitudinal_acc": 1.5,
           "max_lateral_acc": 1.5

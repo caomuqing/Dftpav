@@ -70,8 +70,8 @@ class VehicleParam {
   double rear_suspension_ = 0.10;
   double max_steering_angle_ = 45.0;
 
-  double max_longitudinal_acc_ = 2.0;
-  double max_lateral_acc_ = 2.0;
+  double max_longitudinal_acc_ = 1.5;
+  double max_lateral_acc_ = 1.5;
 
   double d_cr_ = 0.0;  // length between geometry center and rear axle
 };
