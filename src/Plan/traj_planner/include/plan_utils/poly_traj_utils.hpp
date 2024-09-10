@@ -306,12 +306,13 @@ namespace plan_utils
             Eigen::Vector2d ddsigma = getddSigma(t);
            
             //state 
-            Eigen::VectorXd otherstate(5);
+            Eigen::VectorXd otherstate(6);
 
 
             // theta  angle
             otherstate[0] =  std::atan2(singul * dsigma(1), singul * dsigma(0));
             otherstate[2] = singul * dsigma.norm();
+            otherstate[5] =  (dsigma(0)*ddsigma(1) - dsigma(1)*ddsigma(0))/(dsigma(0)*dsigma(0) + dsigma(1)*dsigma(1));
 
 
             if ( abs(otherstate[2]) < 1e-6){
@@ -402,6 +403,7 @@ namespace plan_utils
             state->velocity =  otherstate(2);
             state->acceleration = otherstate(3);
             state->steer = otherstate(4);
+            state->angle_rate = otherstate(5);
             //std::cout << "======================================" << std::endl;
         }
 

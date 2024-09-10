@@ -12,6 +12,8 @@ struct State {
   decimal_t velocity{0.0};
   decimal_t acceleration{0.0};
   decimal_t steer{0.0};  // steering angle
+  decimal_t angle_rate{0.0};  // angle
+
   void print() const {
     printf("State:\n");
     printf(" -- time_stamp: %lf.\n", time_stamp);

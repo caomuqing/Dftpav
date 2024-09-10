@@ -534,7 +534,8 @@ namespace plan_utils
           if (yaw_rate_tmp>max_yaw_rate_) yaw_rate_tmp = max_yaw_rate_;
           else if (yaw_rate_tmp<-max_yaw_rate_) yaw_rate_tmp = -max_yaw_rate_;    
 
-          yaw_cmd = state.velocity*(tan(state.steer)/0.65)+yaw_rate_tmp; //yaw depends on steering curvature
+          // yaw_cmd = state.velocity*(tan(state.steer)/0.65)+yaw_rate_tmp; //yaw depends on steering curvature
+          yaw_cmd = state.angle_rate + yaw_rate_tmp; //yaw depends on steering curvature
 
           double min_turning_radius = 0.48;
           if (fabs(vel_cmd)<0.01) {yaw_cmd = 0.0;}
